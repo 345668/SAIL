@@ -109,15 +109,15 @@ export function NewsroomClient({ initial }: { initial: Article[] }) {
         </div>
         <button
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm text-white"
-          style={{ background: "var(--accent)" }}
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm text-[var(--primary-foreground)]"
+          style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
         >
           <Plus className="w-4 h-4" /> New article
         </button>
       </div>
 
       {open && (
-        <div className="mb-6 rounded-xl border border-border bg-card p-5">
+        <div className="mb-6 card-elev rounded-xl border border-border p-5">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2"><PenLine className="w-4 h-4" /> New article</h3>
           <div className="grid gap-3">
             <div className="grid sm:grid-cols-2 gap-3">
@@ -154,7 +154,7 @@ export function NewsroomClient({ initial }: { initial: Article[] }) {
           </div>
           <div className="flex items-center gap-3 mt-4">
             <button onClick={create} disabled={busy || !f.headline.trim()}
-              className="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm text-white disabled:opacity-50" style={{ background: "var(--accent)" }}>
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm text-[var(--primary-foreground)] disabled:opacity-50" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Save draft
             </button>
             <button onClick={() => setOpen(false)} className="text-sm text-muted-foreground hover:text-foreground">Cancel</button>
@@ -163,7 +163,7 @@ export function NewsroomClient({ initial }: { initial: Article[] }) {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto card-elev rounded-xl border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
@@ -193,7 +193,7 @@ export function NewsroomClient({ initial }: { initial: Article[] }) {
                     <div className="flex justify-end gap-1.5">
                       {a.status !== "published" && (
                         <button onClick={() => setStatus(a, "published")} disabled={rowBusy === a.id} title="Publish"
-                          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md text-xs text-white disabled:opacity-50" style={{ background: "var(--accent)" }}>
+                          className="inline-flex items-center gap-1 h-8 px-2.5 rounded-md text-xs text-[var(--primary-foreground)] disabled:opacity-50" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
                           {rowBusy === a.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Publish
                         </button>
                       )}

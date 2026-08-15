@@ -45,7 +45,7 @@ export function OrgTable({ rows }: { rows: OrgRow[] }) {
         className="mb-4 w-full sm:w-80 h-9 rounded-md border border-border bg-card px-3 text-sm outline-none focus:border-[var(--accent)]"
       />
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto card-elev rounded-xl border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
@@ -88,8 +88,8 @@ export function OrgTable({ rows }: { rows: OrgRow[] }) {
                     <button
                       onClick={() => viewAs(r, "full")}
                       disabled={busy === r.id}
-                      className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs text-white disabled:opacity-50"
-                      style={{ background: "var(--accent)" }}
+                      className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs text-[var(--primary-foreground)] disabled:opacity-50"
+                      style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
                     >
                       Full
                     </button>
@@ -103,7 +103,7 @@ export function OrgTable({ rows }: { rows: OrgRow[] }) {
 
       {handoff && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={() => setHandoff(null)}>
-          <div className="w-full max-w-lg rounded-xl border border-border bg-card p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full max-w-lg card-elev rounded-xl border border-border p-6" onClick={(e) => e.stopPropagation()}>
             <h3 className="font-display text-lg">Open Venture OS as “{handoff.org}”</h3>
             <p className="mt-1 text-sm text-muted-foreground">
               A single-use, 5-minute impersonation grant was minted ({handoff.mode}). Opening the
@@ -113,8 +113,8 @@ export function OrgTable({ rows }: { rows: OrgRow[] }) {
               href={handoff.url}
               target="_blank"
               rel="noreferrer"
-              className="mt-4 inline-flex items-center gap-2 h-10 px-4 rounded-md text-sm text-white"
-              style={{ background: "var(--accent)" }}
+              className="mt-4 inline-flex items-center gap-2 h-10 px-4 rounded-md text-sm text-[var(--primary-foreground)]"
+              style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
             >
               <ExternalLink className="w-4 h-4" /> Open impersonated session
             </a>

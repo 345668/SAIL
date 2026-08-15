@@ -1,20 +1,72 @@
 @import 'tailwindcss';
 
 /*
- * Company Portal theme — deliberately distinct from the tenant app so staff
- * always know which surface they're on: a darker, "control-room" cobalt accent
- * on a near-black canvas. Carta cues kept (hairlines, mono eyebrows, serif via
- * system fallback), but the chrome reads as an internal admin tool, not tenant.
+ * SAIL — Anker Company Portal theme.
+ *
+ * Matches the Anker Venture OS "Carta shell": a light paper canvas, deep-
+ * charcoal text and primary (black buttons on white), fine hairlines, soft-
+ * shadowed white cards, a serif display face, and Anker's signature warm gold
+ * as the accent (eyebrow dots, active nav, focus, progress, toggles).
+ *
+ * Tokens:
+ *   --primary / --primary-foreground   filled CTAs (charcoal -> white)
+ *   --accent                           gold highlight (never a text bg alone)
+ * Theme-aware: light by default, dark mirrors Anker's charcoal+gold dark theme.
  */
 :root {
-  --background: #0b0d12;
-  --foreground: #e8eaf0;
-  --muted-foreground: #8b90a0;
-  --card: #12151c;
-  --border: #2a2f3a;
-  --accent: #3b5bfd; /* company cobalt */
-  --danger: #f0596a;
-  --ok: #2fd08a;
+  --background: #f7f6f3;   /* warm paper */
+  --foreground: #17181c;   /* charcoal, cool */
+  --muted-foreground: #6b6f7a;
+  --card: #ffffff;
+  --card-muted: #faf9f6;
+  --border: #e7e5df;       /* hairline */
+  --primary: #191b21;      /* near-black */
+  --primary-foreground: #ffffff;
+  --accent: #bf9231;       /* Anker gold */
+  --accent-soft: #f3ead6;  /* gold wash for tints on light */
+  --danger: #b93b4a;
+  --ok: #2f8f5b;
+  --ring: #bf9231;
+  --shadow-card: 0 1px 2px rgba(23, 24, 28, 0.04), 0 1px 3px rgba(23, 24, 28, 0.06);
+  --shadow-pop: 0 8px 30px rgba(23, 24, 28, 0.12);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --background: #17181c;
+    --foreground: #f3f2ec;
+    --muted-foreground: #9a9ea8;
+    --card: #1e2026;
+    --card-muted: #23252c;
+    --border: #34363e;
+    --primary: #f1efe7;      /* light on dark so filled buttons pop */
+    --primary-foreground: #191b21;
+    --accent: #d9ac52;       /* brighter gold on dark */
+    --accent-soft: #33302a;
+    --danger: #e06174;
+    --ok: #46b57d;
+    --ring: #d9ac52;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.35);
+    --shadow-pop: 0 10px 34px rgba(0, 0, 0, 0.5);
+  }
+}
+
+:root[data-theme="dark"] {
+  --background: #17181c;
+  --foreground: #f3f2ec;
+  --muted-foreground: #9a9ea8;
+  --card: #1e2026;
+  --card-muted: #23252c;
+  --border: #34363e;
+  --primary: #f1efe7;
+  --primary-foreground: #191b21;
+  --accent: #d9ac52;
+  --accent-soft: #33302a;
+  --danger: #e06174;
+  --ok: #46b57d;
+  --ring: #d9ac52;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 3px rgba(0, 0, 0, 0.35);
+  --shadow-pop: 0 10px 34px rgba(0, 0, 0, 0.5);
 }
 
 @theme inline {
@@ -22,25 +74,67 @@
   --color-foreground: var(--foreground);
   --color-muted-foreground: var(--muted-foreground);
   --color-card: var(--card);
+  --color-card-muted: var(--card-muted);
   --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
   --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
   --color-ok: var(--ok);
-  --font-display: ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, "JetBrains Mono", monospace;
+  --font-display: 'Fraunces', 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'DM Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SFMono-Regular', monospace;
 }
 
 html {
   background: var(--background);
-  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-.font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+.font-display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.011em;
+}
 .font-mono { font-family: var(--font-mono); }
+
+/* Gold selection + gold focus ring, matching the Anker shell. */
+::selection {
+  background: color-mix(in oklab, var(--accent) 26%, transparent);
+}
+:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 70%, transparent);
+  outline-offset: 1px;
+}
+
+/* Thin, unobtrusive scrollbars (Carta cue). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 18%, transparent) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in oklab, var(--foreground) 16%, transparent);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in oklab, var(--foreground) 28%, transparent);
+  background-clip: content-box;
+}
+
+/* Soft-shadowed white cards. Opt-in so we don't disturb bordered utility boxes. */
+.card-elev {
+  background: var(--card);
+  box-shadow: var(--shadow-card);
+}

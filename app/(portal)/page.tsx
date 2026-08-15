@@ -3,9 +3,12 @@ import { PageShell, StatTile } from "@/components/page-shell"
 
 export const dynamic = "force-dynamic"
 
-async function count(q: Promise<any[]>): Promise<number | null> {
+// Takes a thunk so the sql`` call (which throws synchronously when the DB env
+// is unset) is invoked *inside* the try/catch — a missing/unreachable DB
+// degrades each tile to "—" instead of crashing the landing page.
+async function count(run: () => Promise<any[]>): Promise<number | null> {
   try {
-    const rows = await q
+    const rows = await run()
     return Number((rows[0] as any)?.n ?? 0)
   } catch {
     return null
@@ -14,12 +17,12 @@ async function count(q: Promise<any[]>): Promise<number | null> {
 
 export default async function Dashboard() {
   const [orgs, staff, investors, firms, articles, keys] = await Promise.all([
-    count(sql`SELECT count(*)::int AS n FROM organizations`),
-    count(sql`SELECT count(*)::int AS n FROM company_staff WHERE NOT disabled`),
-    count(sql`SELECT count(*)::int AS n FROM investors`),
-    count(sql`SELECT count(*)::int AS n FROM investment_firms`),
-    count(sql`SELECT count(*)::int AS n FROM news_articles`),
-    count(sql`SELECT count(*)::int AS n FROM platform_api_keys WHERE NOT disabled`),
+    count(() => sql`SELECT count(*)::int AS n FROM organizations`),
+    count(() => sql`SELECT count(*)::int AS n FROM company_staff WHERE NOT disabled`),
+    count(() => sql`SELECT count(*)::int AS n FROM investors`),
+    count(() => sql`SELECT count(*)::int AS n FROM investment_firms`),
+    count(() => sql`SELECT count(*)::int AS n FROM news_articles`),
+    count(() => sql`SELECT count(*)::int AS n FROM platform_api_keys WHERE NOT disabled`),
   ])
 
   const fmt = (n: number | null) => (n == null ? "—" : n.toLocaleString())
@@ -39,7 +42,7 @@ export default async function Dashboard() {
         <StatTile label="Company staff" value={fmt(staff)} hint="With portal access" />
       </div>
 
-      <div className="mt-8 rounded-xl border border-border bg-card p-5">
+      <div className="mt-8 card-elev rounded-xl border border-border p-5">
         <h2 className="font-display text-lg">What lives here vs. the tenant app</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Confirmed by scope audit: the global investor database, the AI router and

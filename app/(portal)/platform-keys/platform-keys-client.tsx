@@ -64,15 +64,15 @@ export function PlatformKeysClient({ initial }: { initial: KeyRow[] }) {
       <div className="flex justify-end mb-4">
         <button
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm text-white"
-          style={{ background: "var(--accent)" }}
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm text-[var(--primary-foreground)]"
+          style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
         >
           <Plus className="w-4 h-4" /> Add key
         </button>
       </div>
 
       {open && (
-        <div className="mb-6 rounded-xl border border-border bg-card p-5">
+        <div className="mb-6 card-elev rounded-xl border border-border p-5">
           <h3 className="text-sm font-semibold mb-4 flex items-center gap-2"><KeyRound className="w-4 h-4" /> Add a platform key</h3>
           <div className="grid sm:grid-cols-3 gap-3">
             <label className="flex flex-col gap-1.5">
@@ -95,7 +95,7 @@ export function PlatformKeysClient({ initial }: { initial: KeyRow[] }) {
           </div>
           <div className="flex gap-3 mt-4">
             <button onClick={create} disabled={busy || !f.secret.trim()}
-              className="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm text-white disabled:opacity-50" style={{ background: "var(--accent)" }}>
+              className="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm text-[var(--primary-foreground)] disabled:opacity-50" style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
               {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Save key
             </button>
             <button onClick={() => setOpen(false)} className="text-sm text-muted-foreground hover:text-foreground">Cancel</button>
@@ -106,7 +106,7 @@ export function PlatformKeysClient({ initial }: { initial: KeyRow[] }) {
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto card-elev rounded-xl border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground">

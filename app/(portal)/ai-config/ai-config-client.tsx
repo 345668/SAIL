@@ -59,7 +59,7 @@ export function AiConfigClient({ initial }: { initial: AiRouterConfig }) {
   return (
     <div className="space-y-8">
       {/* Provider force */}
-      <section className="rounded-xl border border-border bg-card p-5">
+      <section className="card-elev rounded-xl border border-border p-5">
         <h2 className="font-display text-lg">Provider</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           Force one provider for every task, or leave on auto (env + key auto-detect chain).
@@ -94,7 +94,7 @@ export function AiConfigClient({ initial }: { initial: AiRouterConfig }) {
       {groups.map(([group, tasks]) => (
         <section key={group}>
           <h3 className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground mb-2">{group}</h3>
-          <div className="overflow-x-auto rounded-lg border border-border">
+          <div className="overflow-x-auto card-elev rounded-xl border border-border">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
@@ -154,8 +154,8 @@ export function AiConfigClient({ initial }: { initial: AiRouterConfig }) {
         <button
           onClick={save}
           disabled={busy || !dirty}
-          className="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm text-white disabled:opacity-50"
-          style={{ background: "var(--accent)" }}
+          className="inline-flex items-center gap-2 h-9 px-4 rounded-md text-sm text-[var(--primary-foreground)] disabled:opacity-50"
+          style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Save changes
         </button>

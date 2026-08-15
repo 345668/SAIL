@@ -25,7 +25,7 @@ export default async function AuditPage() {
           Couldn’t load the audit log: <span className="text-[var(--danger)]">{error}</span>. Run the portal migration first.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="overflow-x-auto card-elev rounded-xl border border-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground">

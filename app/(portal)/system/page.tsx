@@ -28,7 +28,7 @@ export default async function SystemPage() {
     >
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {checks.map((c) => (
-          <div key={c.name} className="rounded-xl border border-border bg-card p-5">
+          <div key={c.name} className="card-elev rounded-xl border border-border p-5">
             <div className="flex items-center gap-2">
               <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: DOT[c.status] }} />
               <div className="font-medium text-sm">{c.name}</div>
@@ -43,7 +43,7 @@ export default async function SystemPage() {
       </div>
 
       <h2 className="font-display text-lg mt-8 mb-3">Shared-DB tables</h2>
-      <div className="overflow-x-auto rounded-lg border border-border">
+      <div className="overflow-x-auto card-elev rounded-xl border border-border">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground">

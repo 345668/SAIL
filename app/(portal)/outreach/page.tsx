@@ -30,7 +30,7 @@ function Breakdown({ title, rows, empty }: { title: string; rows: { k: string; n
       {rows.length === 0 ? (
         <div className="rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">{empty}</div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="overflow-x-auto card-elev rounded-xl border border-border">
           <table className="w-full text-sm">
             <tbody>
               {rows.map((r) => {

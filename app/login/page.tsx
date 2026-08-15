@@ -10,13 +10,13 @@ export default async function LoginPage() {
     <div className="min-h-screen grid place-items-center px-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground mb-4">
-            <span className="inline-block w-2 h-2 rounded-sm" style={{ background: "var(--accent)" }} />
+          <div className="inline-flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.22em] text-muted-foreground mb-4">
+            <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: "var(--accent)" }} />
             Company Portal
           </div>
-          <h1 className="font-display text-2xl tracking-tight">Anker platform administration</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Staff access only. This portal is separate from tenant accounts.
+          <h1 className="font-display text-4xl tracking-[-0.02em] leading-none">Anker</h1>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Platform administration. Staff access only —<br />separate from tenant accounts.
           </p>
         </div>
         <LoginForm />

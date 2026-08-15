@@ -37,7 +37,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={submit} className="rounded-xl border border-border bg-card p-6 space-y-4">
+    <form onSubmit={submit} className="card-elev rounded-2xl border border-border p-6 space-y-4">
       <label className="block">
         <span className="text-[11px] font-mono uppercase tracking-wider text-muted-foreground">Email</span>
         <input
@@ -66,8 +66,8 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={busy}
-        className="w-full h-10 rounded-md text-sm font-medium text-white inline-flex items-center justify-center gap-2 disabled:opacity-60"
-        style={{ background: "var(--accent)" }}
+        className="w-full h-10 rounded-md text-sm font-medium text-[var(--primary-foreground)] inline-flex items-center justify-center gap-2 disabled:opacity-60"
+        style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
       >
         {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <LogIn className="w-4 h-4" />} Sign in
       </button>

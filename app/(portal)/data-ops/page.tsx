@@ -66,7 +66,7 @@ export default async function DataOpsPage() {
           No source breakdown available (the <code>investors.source</code> column may be empty or the table unreachable).
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="overflow-x-auto card-elev rounded-xl border border-border">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-[11px] font-mono uppercase tracking-wider text-muted-foreground">
