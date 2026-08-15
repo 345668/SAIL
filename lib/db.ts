@@ -19,3 +19,12 @@ function client(): NeonQueryFunction<false, false> {
 // Forward tagged-template calls to the lazily-created neon client.
 export const sql = ((strings: TemplateStringsArray, ...values: any[]) =>
   client()(strings, ...values)) as NeonQueryFunction<false, false>
+
+/**
+ * Parameterized non-template query — for the rare cases where the SQL text is
+ * built dynamically (e.g. a table name from a fixed allow-list). Never pass
+ * untrusted input as the query text; use params for values.
+ */
+export function query(text: string, params: any[] = []): Promise<any[]> {
+  return client().query(text, params) as unknown as Promise<any[]>
+}

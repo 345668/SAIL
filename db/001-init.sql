@@ -49,6 +49,41 @@ CREATE TABLE IF NOT EXISTS impersonation_grants (
 );
 CREATE INDEX IF NOT EXISTS impersonation_grants_token_idx ON impersonation_grants (token_hash);
 
+-- ── System settings (shared KV — the AI-router knob lives here) ─────────────
+-- The tenant app owns this table; we CREATE IF NOT EXISTS so a standalone
+-- portal DB still works, and seed the router key so /ai-config has a row to
+-- edit. On the shared DB this is a no-op (the tenant already created it).
+CREATE TABLE IF NOT EXISTS system_settings (
+  key         text PRIMARY KEY,
+  value       jsonb NOT NULL,
+  description text,
+  updated_by  text,
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO system_settings (key, value, description)
+  VALUES (
+    'ai_router_v1',
+    '{"enabled": {}, "modelOverride": {}, "providerOverride": null}'::jsonb,
+    'Per-task AI router config — edited by the company portal /ai-config, read by the tenant router.'
+  )
+  ON CONFLICT (key) DO NOTHING;
+
+-- ── Platform usage events (cost metering for Billing) ───────────────────────
+-- Portal-owned. The AI router (or any metered service) appends one row per
+-- billable call; the Billing page rolls these up by provider over 30 days.
+CREATE TABLE IF NOT EXISTS platform_usage_events (
+  id          bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  provider    text NOT NULL,                 -- anthropic | gemini | openai | resend | …
+  task        text,                          -- router task tag, when applicable
+  org_id      text,                          -- attributing tenant, when known
+  tokens_in   integer,
+  tokens_out  integer,
+  cost_usd    numeric(12,6) NOT NULL DEFAULT 0,
+  occurred_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS platform_usage_events_provider_time_idx
+  ON platform_usage_events (provider, occurred_at DESC);
+
 -- ── Audit log (platform-wide, written by the portal) ────────────────────────
 CREATE TABLE IF NOT EXISTS company_audit_log (
   id         bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

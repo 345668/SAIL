@@ -31,7 +31,29 @@ Runs on **port 3100** (tenant app is 3000). Shares the tenant app's Neon databas
 **Built:** auth + login, portal shell, Dashboard (platform stats), Organizations
 (with view-as mint), **Platform API keys** (AES-256-GCM at rest), Users, Audit log.
 
-**Phase 2 (migrating from the tenant Owner Console):** Data ops (import/crawl/
-enrich/url-check/email-check), Send Center (outbox/replies/agent), Newsroom CMS,
-AI config, System health, Billing — plus tenant-side `/api/impersonate/accept`.
-Once these land here, the platform-ops tools come **off** the tenant app entirely.
+**AI config** — edits the shared-DB router knob (`system_settings/ai_router_v1`):
+force a provider (with optional strict/no-failover), per-task model overrides, and
+per-task on/off. The tenant router reads the same row, so changes are platform-wide.
+
+**Newsroom CMS** — full draft → publish → archive over `news_articles`, with
+slugging and audited transitions. Drafts stay private until published.
+
+**System health** — live reachability of Postgres + Ollama/SearXNG/Marker/tenant
+(pings honor the service env vars) and shared-DB table counts.
+
+**Data ops** — read model over the global investor DB: coverage (email/LinkedIn),
+enrichment state, and a records-by-source breakdown.
+
+**Send Center** — outbox-by-status and replies-by-classification rollups over
+`outreach_messages` / `outreach_replies`.
+
+**Billing & credits** — platform inventory (orgs, keys, seats, storage driver) and
+30-day AI spend by provider from `platform_usage_events`.
+
+Every panel degrades gracefully if a shared table is absent, and every write is
+recorded in `company_audit_log`.
+
+**Still phase 2:** tenant-side `/api/impersonate/accept` (the portal already mints
+and audits grants), plus write-side job triggers for Data ops and Send Center as
+they migrate off the tenant Owner Console. Once those land, all platform-ops
+tooling is **off** the tenant app.

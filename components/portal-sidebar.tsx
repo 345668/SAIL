@@ -20,23 +20,23 @@ const NAV: { heading: string; items: { label: string; href: string; icon: any; s
     heading: "Platform",
     items: [
       { label: "Platform API keys", href: "/platform-keys", icon: KeyRound },
-      { label: "AI config", href: "/ai-config", icon: Bot, soon: true },
-      { label: "System health", href: "/system", icon: HeartPulse, soon: true },
+      { label: "AI config", href: "/ai-config", icon: Bot },
+      { label: "System health", href: "/system", icon: HeartPulse },
     ],
   },
   {
     heading: "Data & growth",
     items: [
-      { label: "Data ops", href: "/data-ops", icon: Database, soon: true },
-      { label: "Send Center", href: "/outreach", icon: Send, soon: true },
-      { label: "Newsroom CMS", href: "/newsroom", icon: Newspaper, soon: true },
+      { label: "Data ops", href: "/data-ops", icon: Database },
+      { label: "Send Center", href: "/outreach", icon: Send },
+      { label: "Newsroom CMS", href: "/newsroom", icon: Newspaper },
     ],
   },
   {
     heading: "Governance",
     items: [
       { label: "Audit log", href: "/audit", icon: ScrollText },
-      { label: "Billing & credits", href: "/billing", icon: CreditCard, soon: true },
+      { label: "Billing & credits", href: "/billing", icon: CreditCard },
     ],
   },
 ]
