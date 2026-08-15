@@ -1,0 +1,46 @@
+@import 'tailwindcss';
+
+/*
+ * Company Portal theme — deliberately distinct from the tenant app so staff
+ * always know which surface they're on: a darker, "control-room" cobalt accent
+ * on a near-black canvas. Carta cues kept (hairlines, mono eyebrows, serif via
+ * system fallback), but the chrome reads as an internal admin tool, not tenant.
+ */
+:root {
+  --background: #0b0d12;
+  --foreground: #e8eaf0;
+  --muted-foreground: #8b90a0;
+  --card: #12151c;
+  --border: #2a2f3a;
+  --accent: #3b5bfd; /* company cobalt */
+  --danger: #f0596a;
+  --ok: #2fd08a;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --font-display: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", monospace;
+}
+
+html {
+  background: var(--background);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display { font-family: var(--font-display); letter-spacing: -0.01em; }
+.font-mono { font-family: var(--font-mono); }
