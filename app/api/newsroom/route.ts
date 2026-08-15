@@ -1,31 +1,43 @@
 import { NextResponse } from "next/server"
 import { getSession } from "@/lib/auth"
 import { sql } from "@/lib/db"
+import {
+  ARTICLE_BLOG_TYPES, ARTICLE_SENTIMENTS, ARTICLE_STATUSES,
+  ensureUniqueSlug, hasSentiment, normalizeRow, slugify,
+} from "@/lib/newsroom"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 
-const BLOG_TYPES = ["Insights", "Trends", "Analysis", "Guides", "News", "Press", "Investment", "Announcements"]
-
-function slugify(headline: string, id: string): string {
-  const base = headline
-    .toLowerCase()
-    .replace(/['"`]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 70)
-    .replace(/-+$/g, "")
-  return `${base || "article"}-${id.slice(0, 6)}`
-}
-
-export async function GET() {
+export async function GET(req: Request) {
   const staff = await getSession()
   if (!staff) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const url = new URL(req.url)
+  const status = url.searchParams.get("status")
+  const blogType = url.searchParams.get("blog_type")
+  const q = (url.searchParams.get("q") || "").trim()
   try {
-    const rows = await sql`
-      SELECT id, headline, subheadline, author, blog_type, status, image_url, slug, published_at, created_at, updated_at
-      FROM news_articles ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
-    return NextResponse.json({ articles: rows })
+    // Branch on filters with pure tagged templates (SELECT * survives drift).
+    let rows: any[]
+    const like = `%${q}%`
+    if (q && status && blogType) {
+      rows = await sql`SELECT * FROM news_articles WHERE status=${status} AND blog_type=${blogType} AND (headline ILIKE ${like} OR subheadline ILIKE ${like}) ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+    } else if (q && status) {
+      rows = await sql`SELECT * FROM news_articles WHERE status=${status} AND (headline ILIKE ${like} OR subheadline ILIKE ${like}) ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+    } else if (q && blogType) {
+      rows = await sql`SELECT * FROM news_articles WHERE blog_type=${blogType} AND (headline ILIKE ${like} OR subheadline ILIKE ${like}) ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+    } else if (status && blogType) {
+      rows = await sql`SELECT * FROM news_articles WHERE status=${status} AND blog_type=${blogType} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+    } else if (q) {
+      rows = await sql`SELECT * FROM news_articles WHERE headline ILIKE ${like} OR subheadline ILIKE ${like} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+    } else if (status) {
+      rows = await sql`SELECT * FROM news_articles WHERE status=${status} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+    } else if (blogType) {
+      rows = await sql`SELECT * FROM news_articles WHERE blog_type=${blogType} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+    } else {
+      rows = await sql`SELECT * FROM news_articles ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+    }
+    return NextResponse.json({ articles: rows.map(normalizeRow) })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "load failed", articles: [] }, { status: 500 })
   }
@@ -35,34 +47,45 @@ export async function POST(req: Request) {
   const staff = await getSession()
   if (!staff) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  let headline = "", subheadline: string | null = null, content: string | null = null
-  let author = "Anker", blogType = "Insights"
+  let b: any
   try {
-    const b = await req.json()
-    headline = String(b.headline || "").trim()
-    subheadline = b.subheadline ? String(b.subheadline).trim() : null
-    content = b.content ? String(b.content) : null
-    if (b.author) author = String(b.author).trim()
-    if (b.blog_type && BLOG_TYPES.includes(b.blog_type)) blogType = b.blog_type
+    b = await req.json()
   } catch {
     return NextResponse.json({ error: "Bad request" }, { status: 400 })
   }
+  const headline = String(b.headline || "").trim()
   if (!headline) return NextResponse.json({ error: "headline is required" }, { status: 400 })
 
+  const subheadline = b.subheadline ? String(b.subheadline).trim() : null
+  const content = b.content != null ? String(b.content) : null
+  const author = b.author ? String(b.author).trim() : "Anker"
+  const blogType = ARTICLE_BLOG_TYPES.includes(b.blog_type) ? b.blog_type : "Insights"
+  const status = ARTICLE_STATUSES.includes(b.status) ? b.status : "draft"
+  const tags = Array.isArray(b.tags) ? b.tags.filter((s: any) => typeof s === "string") : []
+  const imageUrl = b.image_url ? String(b.image_url) : null
+  const scheduledFor = b.scheduled_for ? String(b.scheduled_for) : null
+  const sourcePdfUrl = b.source_pdf_url ? String(b.source_pdf_url) : null
+  const sentiment = ARTICLE_SENTIMENTS.includes(b.sentiment) ? b.sentiment : null
+  const publishNow = status === "published"
+
   try {
-    // Insert first to get the generated id, then set a deterministic slug.
-    const inserted = await sql`
-      INSERT INTO news_articles (headline, subheadline, content, author, blog_type, status, created_by)
-      VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, 'draft', ${staff.email})
-      RETURNING id`
-    const id = (inserted[0] as any).id as string
-    const rows = await sql`
-      UPDATE news_articles SET slug = ${slugify(headline, id)}, updated_at = NOW()
-      WHERE id = ${id}
-      RETURNING id, headline, subheadline, author, blog_type, status, image_url, slug, published_at, created_at, updated_at`
+    const slug = await ensureUniqueSlug(slugify(headline))
+    const withSentiment = await hasSentiment()
+    const tagsJson = JSON.stringify(tags)
+
+    const rows = withSentiment
+      ? await sql`
+          INSERT INTO news_articles (headline, subheadline, content, author, blog_type, tags, status, image_url, slug, scheduled_for, source_pdf_url, sentiment, published_at, created_by)
+          VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, ${tagsJson}::jsonb, ${status}, ${imageUrl}, ${slug}, ${scheduledFor}, ${sourcePdfUrl}, ${sentiment}, ${publishNow ? new Date().toISOString() : null}, ${staff.email})
+          RETURNING *`
+      : await sql`
+          INSERT INTO news_articles (headline, subheadline, content, author, blog_type, tags, status, image_url, slug, scheduled_for, source_pdf_url, published_at, created_by)
+          VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, ${tagsJson}::jsonb, ${status}, ${imageUrl}, ${slug}, ${scheduledFor}, ${sourcePdfUrl}, ${publishNow ? new Date().toISOString() : null}, ${staff.email})
+          RETURNING *`
+
     await sql`INSERT INTO company_audit_log (staff_id, staff_email, action, target, detail)
-      VALUES (${staff.id}, ${staff.email}, 'newsroom.create', ${id}, ${JSON.stringify({ headline })}::jsonb)`
-    return NextResponse.json({ article: rows[0] })
+      VALUES (${staff.id}, ${staff.email}, 'newsroom.create', ${(rows[0] as any).id}, ${JSON.stringify({ headline, status })}::jsonb)`
+    return NextResponse.json({ article: normalizeRow(rows[0]) }, { status: 201 })
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "create failed" }, { status: 500 })
   }

@@ -95,3 +95,50 @@ CREATE TABLE IF NOT EXISTS company_audit_log (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS company_audit_log_created_idx ON company_audit_log (created_at DESC);
+
+-- ── Newsroom CMS (shared with the tenant public /newsroom) ──────────────────
+-- The tenant app owns news_articles; we CREATE IF NOT EXISTS so a standalone
+-- portal DB still works, and add the CMS columns the editor needs (idempotent
+-- on the shared DB where they already exist).
+CREATE TABLE IF NOT EXISTS news_articles (
+  id            text PRIMARY KEY DEFAULT gen_random_uuid()::text,
+  headline      text NOT NULL,
+  subheadline   text,
+  content       text,
+  author        text NOT NULL DEFAULT 'Anker',
+  blog_type     text NOT NULL DEFAULT 'Insights',
+  tags          jsonb DEFAULT '[]'::jsonb,
+  status        text NOT NULL DEFAULT 'draft',
+  image_url     text,
+  published_at  timestamptz,
+  created_by    text,
+  created_at    timestamptz DEFAULT now(),
+  updated_at    timestamptz DEFAULT now()
+);
+ALTER TABLE news_articles
+  ADD COLUMN IF NOT EXISTS slug           text,
+  ADD COLUMN IF NOT EXISTS scheduled_for  timestamptz,
+  ADD COLUMN IF NOT EXISTS source_pdf_url text,
+  ADD COLUMN IF NOT EXISTS sentiment      text;  -- 'bullish' | 'neutral' | 'bearish'
+CREATE UNIQUE INDEX IF NOT EXISTS news_articles_slug_unique_idx ON news_articles (slug) WHERE slug IS NOT NULL;
+CREATE INDEX IF NOT EXISTS news_articles_status_pub_idx ON news_articles (status, published_at DESC);
+
+-- ── Newsroom themes (editorial lenses that steer AI drafting) ───────────────
+CREATE TABLE IF NOT EXISTS news_themes (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name        text NOT NULL,
+  slug        text NOT NULL UNIQUE,
+  description text,
+  keywords    text[] NOT NULL DEFAULT '{}',
+  enabled     boolean NOT NULL DEFAULT true,
+  position    int,
+  created_at  timestamptz NOT NULL DEFAULT now(),
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+INSERT INTO news_themes (name, slug, description, keywords, position) VALUES
+  ('Venture Capital', 'venture-capital', 'Fund launches, LP commitments, emerging managers', ARRAY['venture capital','vc fund','emerging manager','fund launch','LP commitment'], 1),
+  ('Family Offices', 'family-offices', 'Family office allocations and direct investing', ARRAY['family office','single family office','wealth management','direct investment'], 2),
+  ('Climate & Energy', 'climate-energy', 'Climate tech, energy transition, green capital', ARRAY['climate tech','energy transition','decarbonization','green hydrogen','cleantech'], 3),
+  ('AI Infrastructure', 'ai-infrastructure', 'AI compute, models, and the capital behind them', ARRAY['artificial intelligence','ai infrastructure','data center','gpu','foundation model'], 4),
+  ('Secondaries & Liquidity', 'secondaries', 'Secondary sales, continuation funds, GP-led deals', ARRAY['secondaries','continuation fund','gp-led','tender offer','liquidity'], 5)
+ON CONFLICT (slug) DO NOTHING;
