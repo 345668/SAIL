@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { Plus, Sparkles } from "lucide-react"
+import { Plus, Sparkles, Rss } from "lucide-react"
 import { sql } from "@/lib/db"
 import { PageShell } from "@/components/page-shell"
 import { normalizeRow, type NewsArticle } from "@/lib/newsroom"
@@ -25,6 +25,12 @@ export default async function NewsroomPage() {
       description="Author and publish the platform’s own public newsroom at an-ker.de/newsroom — the company’s marketing surface, not tenant content. AI first-drafts run on the portal’s own Anthropic key; drafts stay private until you publish."
       action={
         <div className="flex items-center gap-2">
+          <Link
+            href="/newsroom/sources"
+            className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md border border-border text-sm hover:border-[var(--accent)]"
+          >
+            <Rss className="w-4 h-4" /> Sources
+          </Link>
           <Link
             href="/newsroom/themes"
             className="inline-flex items-center gap-2 h-9 px-3.5 rounded-md border border-border text-sm hover:border-[var(--accent)]"

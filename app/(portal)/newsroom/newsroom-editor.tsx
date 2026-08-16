@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { Loader2, Sparkles, Save, Send, Trash2, ArrowLeft, Check } from "lucide-react"
 import { ARTICLE_BLOG_TYPES, ARTICLE_SENTIMENTS, type NewsArticle } from "@/lib/newsroom"
@@ -30,6 +30,7 @@ function toLocalInput(iso: string | null): string {
 
 export function NewsroomEditor({ article }: { article?: NewsArticle }) {
   const router = useRouter()
+  const params = useSearchParams()
   const editing = !!article
   const [f, setF] = useState(
     article
@@ -59,6 +60,29 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
     fetch("/api/newsroom/themes").then((r) => r.json()).then((d) => {
       if (Array.isArray(d.themes)) setThemes(d.themes.filter((t: Theme) => t.enabled))
     }).catch(() => {})
+  }, [])
+
+  // Pick up a "draft from source" seed handed over from News sources.
+  useEffect(() => {
+    if (editing || params.get("from-source") !== "1") return
+    try {
+      const raw = sessionStorage.getItem("newsroom:draft-from-source")
+      if (!raw) return
+      sessionStorage.removeItem("newsroom:draft-from-source")
+      const s = JSON.parse(raw)
+      setF((c) => ({
+        ...c,
+        headline: s.headline || c.headline,
+        subheadline: s.subheadline || c.subheadline,
+        content: s.content || c.content,
+        tags: Array.isArray(s.suggestedTags) && s.suggestedTags.length ? s.suggestedTags.join(", ") : c.tags,
+        sentiment: s.sentiment || c.sentiment,
+        image_url: s.imageUrl || c.image_url,
+        source_pdf_url: s.sourceUrl || c.source_pdf_url,
+        blog_type: "Analysis",
+      }))
+    } catch { /* ignore malformed seed */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const set = (patch: Partial<typeof f>) => { setF((c) => ({ ...c, ...patch })); setSaved(false) }
