@@ -47,7 +47,7 @@ export function EnrichmentClient() {
     setError(null)
     startLoad(async () => {
       try {
-        const res = await fetch(`/api/admin/enrich?kind=${kind}&limit=${limit}`)
+        const res = await fetch(`/api/anker/admin/enrich?kind=${kind}&limit=${limit}`)
         const data = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(data?.error ?? `Failed (${res.status})`)
         setCandidates(data.candidates ?? [])

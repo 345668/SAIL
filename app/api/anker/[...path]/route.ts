@@ -37,6 +37,11 @@ async function relay(req: Request, ctx: { params: Promise<{ path: string[] }> })
     body: hasBody ? await req.text() : null,
     contentType: hasBody ? (req.headers.get("content-type") ?? "application/json") : null,
     staffEmail: staff.email,
+    // The only client header relayed. The staff session is already verified
+    // above, so choosing a subject is the intended capability — but it is
+    // forwarded explicitly rather than by passing the client's headers through,
+    // so nothing else (an Authorization, say) can ride along.
+    actAsUser: req.headers.get("x-portal-act-as-user"),
   })
 
   // Relay status and body as-is; the panels expect the tenant's own shapes.

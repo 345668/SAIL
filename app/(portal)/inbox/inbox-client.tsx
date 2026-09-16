@@ -85,7 +85,7 @@ export function InboxClient() {
     setError(null)
     startLoad(async () => {
       try {
-        const res = await fetch(`/api/admin/inbox?status=${b}&limit=200`, { cache: "no-store" })
+        const res = await fetch(`/api/anker/admin/inbox?status=${b}&limit=200`, { cache: "no-store" })
         const json = await res.json().catch(() => ({}))
         if (!res.ok) throw new Error(json?.error ?? `Failed (${res.status})`)
         setData(json)

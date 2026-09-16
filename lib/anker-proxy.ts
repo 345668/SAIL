@@ -40,7 +40,26 @@ export const PROXY_ALLOWLIST = [
   "admin/url-check/fix",
   "admin/email-check",
   "admin/email-check/fix",
+  "admin/email/sync-events",
+  "admin/email/outbox",
+  // USER-SCOPED. These authenticate as a tenant user, not as an admin, so they
+  // require an explicit x-portal-act-as-user alongside the bearer. Anker
+  // resolves it in lib/auth/acting-user.ts: the subject must exist, is granted
+  // only that user's privileges (never admin), and every resolution is audited.
+  // outreach/send-email in particular sends real email from that user.
+  "outreach/send-email",
+  "agents/run",
+  "agents/runs",
+  "agents/profile",
+  "agents/tick",
 ] as const
+
+/** Paths that require an acting user — refused without one. */
+export const ACT_AS_REQUIRED = new Set<string>([
+  "outreach/send-email",
+  "agents/run",
+  "agents/profile",
+])
 
 export type ProxyPath = (typeof PROXY_ALLOWLIST)[number]
 
@@ -66,6 +85,8 @@ export interface ForwardInit {
   contentType?: string | null
   /** Advisory attribution for the tenant's audit log. Not an auth factor. */
   staffEmail?: string | null
+  /** Tenant user to act as, for the user-scoped paths. */
+  actAsUser?: string | null
 }
 
 /**
@@ -86,11 +107,21 @@ export async function forwardToAnker(init: ForwardInit): Promise<Response> {
   if (!isProxyAllowed(init.path)) {
     return Response.json({ error: `Path not allowed: ${init.path}` }, { status: 403 })
   }
+  // Fail closed: a user-scoped path with no subject would otherwise reach the
+  // tenant and be rejected there as a bare 401, which reads like a broken relay
+  // rather than a missing field.
+  if (ACT_AS_REQUIRED.has(init.path) && !init.actAsUser) {
+    return Response.json(
+      { error: "This action runs as a tenant user — choose one before continuing." },
+      { status: 400 },
+    )
+  }
 
   const url = `${cfg.baseUrl}/api/${init.path}${init.search ?? ""}`
   const headers: Record<string, string> = { authorization: `Bearer ${cfg.token}` }
   if (init.contentType) headers["content-type"] = init.contentType
   if (init.staffEmail) headers["x-portal-staff-email"] = init.staffEmail
+  if (init.actAsUser) headers["x-portal-act-as-user"] = init.actAsUser
 
   try {
     return await fetch(url, {
