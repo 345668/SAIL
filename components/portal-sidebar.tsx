@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard, Building2, Users, KeyRound, Bot, Database, Send,
-  Newspaper, HeartPulse, ScrollText, CreditCard, LogOut, ShieldCheck, Plug, Puzzle, Plug2, Telescope,
+  Newspaper, HeartPulse, ScrollText, CreditCard, LogOut, ShieldCheck, Plug, Puzzle, Plug2, Telescope, Globe, FileUp, LinkIcon, MailCheck, Wand2, Inbox,
 } from "lucide-react"
 
 const NAV: { heading: string; items: { label: string; href: string; icon: any; soon?: boolean }[] }[] = [
@@ -32,6 +32,12 @@ const NAV: { heading: string; items: { label: string; href: string; icon: any; s
     items: [
       { label: "Data ops", href: "/data-ops", icon: Database },
       { label: "Deep research", href: "/research", icon: Telescope },
+      { label: "Web crawler", href: "/crawl", icon: Globe },
+      { label: "CSV imports", href: "/imports", icon: FileUp },
+      { label: "AI enrichment", href: "/enrichment", icon: Wand2 },
+      { label: "Reply inbox", href: "/inbox", icon: Inbox },
+      { label: "URL health", href: "/url-check", icon: LinkIcon },
+      { label: "Email verification", href: "/email-check", icon: MailCheck },
       { label: "Send Center", href: "/outreach", icon: Send },
       { label: "Newsroom CMS", href: "/newsroom", icon: Newspaper },
     ],

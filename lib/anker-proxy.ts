@@ -23,9 +23,23 @@
  * hand every admin route to anything that can reach this proxy.
  */
 export const PROXY_ALLOWLIST = [
+  // AI-backed — engine needs the tenant's provider / model router / web search.
   "admin/enrich",
   "admin/deep-research",
   "admin/inbox",
+  // Not AI, but relayed for the same reason: their engines are ~1,700 lines of
+  // lib/admin (web-crawler, csv-importer, url-check, email-check, hunter) that
+  // already read and write this same shared database. Duplicating them here
+  // would mean two implementations to keep in step — the drift that has already
+  // required byte-identical copies of two hash helpers and an encryption
+  // scheme. The panel is identical either way, so a tool can be converted to a
+  // direct port later by changing one endpoint and porting its lib.
+  "admin/crawl",
+  "admin/imports",
+  "admin/url-check",
+  "admin/url-check/fix",
+  "admin/email-check",
+  "admin/email-check/fix",
 ] as const
 
 export type ProxyPath = (typeof PROXY_ALLOWLIST)[number]
