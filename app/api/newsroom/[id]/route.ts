@@ -69,8 +69,14 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (typeof b.author === "string") await sql`UPDATE news_articles SET author = ${b.author} WHERE id = ${id}`
     if (typeof b.blog_type === "string" && ARTICLE_BLOG_TYPES.includes(b.blog_type))
       await sql`UPDATE news_articles SET blog_type = ${b.blog_type} WHERE id = ${id}`
+    // tags is text[], not jsonb — the ::jsonb cast here made every tag edit
+    // fail. The driver maps a JS array to a Postgres array directly.
     if (Array.isArray(b.tags))
-      await sql`UPDATE news_articles SET tags = ${JSON.stringify(b.tags.filter((s: any) => typeof s === "string"))}::jsonb WHERE id = ${id}`
+      await sql`UPDATE news_articles SET tags = ${b.tags.filter((s: any) => typeof s === "string")} WHERE id = ${id}`
+    if (Array.isArray(b.sources))
+      await sql`UPDATE news_articles SET sources = ${JSON.stringify(b.sources.slice(0, 20))}::jsonb WHERE id = ${id}`
+    if (Array.isArray(b.source_item_ids))
+      await sql`UPDATE news_articles SET source_item_ids = ${b.source_item_ids.map(String).slice(0, 20)} WHERE id = ${id}`
     if ("image_url" in b) await sql`UPDATE news_articles SET image_url = ${b.image_url ?? null} WHERE id = ${id}`
     if ("scheduled_for" in b) await sql`UPDATE news_articles SET scheduled_for = ${b.scheduled_for ?? null} WHERE id = ${id}`
     if ("source_pdf_url" in b) await sql`UPDATE news_articles SET source_pdf_url = ${b.source_pdf_url ?? null} WHERE id = ${id}`

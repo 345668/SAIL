@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getSession } from "@/lib/auth"
 import { sql } from "@/lib/db"
 import { decryptSecret } from "@/lib/crypto"
+import { gatherSources } from "@/lib/news/ingest"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -10,12 +11,18 @@ export const maxDuration = 300
 /**
  * AI first-draft for a newsroom article — "Anker AI", powered by the portal's
  * OWN stored Anthropic platform key (platform_api_keys, decrypted server-side).
- * No tenant AI router involved. Optionally grounds the angle in an editorial
- * theme's keywords.
+ * No tenant AI router involved.
+ *
+ * Grounding: when source items are supplied, or auto-retrieved from the topic
+ * and an editorial theme's keywords, their headlines and summaries are injected
+ * as a SOURCES block. The model builds the piece on those facts and closes with
+ * a "## Sources" section; the structured sources come back too, so the editor
+ * can persist news_articles.sources and source_item_ids on save.
  *
  * Body: { topic, blogType?, lengthHint?: short|medium|long|feature, voice?,
- *         audienceHint?, themeId? }
- * Returns: { headline, subheadline, content, suggestedTags, sentiment }
+ *         audienceHint?, themeId?, sourceItemIds?: string[], groundFromNews? }
+ * Returns: { headline, subheadline, content, suggestedTags, sentiment,
+ *            sources, usedSourceItemIds }
  */
 const LENGTHS: Record<string, { words: number; structure: string }> = {
   short:  { words: 500,  structure: "A tight brief: hook, 2-3 H2 sections, close." },
@@ -58,18 +65,38 @@ export async function POST(req: Request) {
   const audience = String(b.audienceHint || "founders raising and LPs evaluating funds")
 
   let themeLine = ""
+  let themeKeywords: string[] = []
   if (b.themeId) {
     try {
       const rows = await sql`SELECT name, description, keywords FROM news_themes WHERE id = ${String(b.themeId)}::uuid AND enabled LIMIT 1`
       const t = rows[0] as any
       if (t) {
-        const kw = Array.isArray(t.keywords) ? t.keywords.join(", ") : ""
+        themeKeywords = Array.isArray(t.keywords) ? t.keywords.map(String) : []
+        const kw = themeKeywords.join(", ")
         themeLine = `\nEditorial theme: ${t.name}${t.description ? ` — ${t.description}` : ""}${kw ? `\nGround the angle in these keywords: ${kw}.` : ""}`
       }
     } catch {
       /* theme optional */
     }
   }
+
+  // Grounding. Either the editor picked specific stories, or we retrieve
+  // recent ones matching the topic and theme. Without this the model writes
+  // from its own priors and the article cites nothing — which is what the
+  // portal has been doing, because this half was never ported across.
+  const grounding = await gatherSources({
+    topic,
+    themeKeywords,
+    sourceItemIds: Array.isArray(b.sourceItemIds) ? b.sourceItemIds.map(String).slice(0, 12) : [],
+    auto: b.groundFromNews === true || !!b.themeId,
+  })
+  const sourcesBlock = grounding.length
+    ? `\n\nSOURCES — ground the article in these reported items. Use their concrete facts, figures and names, attribute claims to them, and do not invent beyond them. Close with a "## Sources" section listing each source you used as a Markdown link.\n` +
+      grounding.map((s, i) =>
+        `[S${i + 1}] ${s.headline}${s.published_at ? ` (${String(s.published_at).slice(0, 10)})` : ""}` +
+        `${s.source_url ? ` — ${s.source_url}` : ""}\n${(s.summary || s.content || "").replace(/\s+/g, " ").slice(0, 600)}`,
+      ).join("\n\n")
+    : ""
 
   const key = await anthropicKey()
   if (!key) {
@@ -80,7 +107,7 @@ export async function POST(req: Request) {
   }
 
   const system = `You are the editor of Anker's public newsroom. You write ${blogType} pieces for ${audience}. Voice: ${voice}. Target ~${words} words. Structure: ${structure} Use Markdown with H2 (##) section headers. Do not invent specific statistics or quotes; keep claims defensible.`
-  const user = `Draft a newsroom article on: ${topic}.${themeLine}
+  const user = `Draft a newsroom article on: ${topic}.${themeLine}${sourcesBlock}
 
 Return ONLY valid minified JSON (no code fence) with exactly these keys:
 {"headline": string, "subheadline": string, "content": string (Markdown body), "suggestedTags": string[] (3-6 lowercase tags), "sentiment": "bullish"|"neutral"|"bearish"}`
@@ -125,6 +152,11 @@ Return ONLY valid minified JSON (no code fence) with exactly these keys:
       content: String(parsed.content || ""),
       suggestedTags: Array.isArray(parsed.suggestedTags) ? parsed.suggestedTags.filter((s: any) => typeof s === "string").slice(0, 8) : [],
       sentiment: ["bullish", "neutral", "bearish"].includes(parsed.sentiment) ? parsed.sentiment : "neutral",
+      // Returned structurally as well as inside the prose, so the editor can
+      // persist provenance on the article instead of the link list being the
+      // only record of what the piece was built from.
+      sources: grounding.map(s => ({ headline: s.headline, url: s.source_url, publishedAt: s.published_at })),
+      usedSourceItemIds: grounding.map(s => s.id),
     })
   } catch (e: any) {
     const msg = e?.name === "TimeoutError" ? "Anthropic timed out" : e?.message || "draft failed"

@@ -5,6 +5,7 @@ import {
   type ProviderId, type NewsItem, NewsProviderError,
 } from "@/lib/news/providers"
 import { REGIONS, TOPICS, type Region, type Topic } from "@/lib/news/regions"
+import { persistFetchedItems } from "@/lib/news/ingest"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -64,7 +65,20 @@ export async function POST(req: Request) {
     provider: r.id, ok: !r.error, count: r.items.length, error: r.error,
   }))
 
-  return NextResponse.json({ items: merged, totalBeforeDedupe: allItems.length, providerResults, region, topics })
+  // Keep what we fetched. Drafting grounds articles by retrieving from
+  // news_source_items; without this the feed was rendered and thrown away, so
+  // every "ground from news" draft quietly had nothing to ground in.
+  const ingest = await persistFetchedItems(merged, region)
+
+  return NextResponse.json({
+    // storedId is the news_source_items row, which is what "draft grounded in
+    // these stories" has to reference — the provider's own id means nothing to
+    // the database.
+    items: merged.map(i => ({ ...i, storedId: ingest.ids[i.url] ?? null })),
+    totalBeforeDedupe: allItems.length, providerResults, region, topics,
+    stored: ingest.stored,
+    storeError: ingest.failed ? "Results are shown but could not be saved for grounding." : undefined,
+  })
 }
 
 function clampInt(v: any, min: number, max: number, fallback: number) {

@@ -50,8 +50,11 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
   )
   const [status, setStatus] = useState<NewsArticle["status"]>(article?.status ?? "draft")
   const [themes, setThemes] = useState<Theme[]>([])
-  const [ai, setAi] = useState({ topic: "", length: "medium", themeId: "" })
+  const [ai, setAi] = useState({ topic: "", length: "medium", themeId: "", ground: true })
   const [drafting, setDrafting] = useState(false)
+  // Which reported stories this piece was built on. Carried from the grounded
+  // draft and saved with the article, so the provenance survives the draft.
+  const [provenance, setProvenance] = useState<{ sources: any[]; sourceItemIds: string[] }>({ sources: [], sourceItemIds: [] })
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -81,6 +84,12 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
         source_pdf_url: s.sourceUrl || c.source_pdf_url,
         blog_type: "Analysis",
       }))
+      if (Array.isArray(s.sources) || Array.isArray(s.sourceItemIds)) {
+        setProvenance({
+          sources: Array.isArray(s.sources) ? s.sources : [],
+          sourceItemIds: Array.isArray(s.sourceItemIds) ? s.sourceItemIds : [],
+        })
+      }
     } catch { /* ignore malformed seed */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -100,6 +109,8 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
       source_pdf_url: f.source_pdf_url || null,
       image_url: f.image_url || null,
       status: overrideStatus ?? status,
+      sources: provenance.sources,
+      source_item_ids: provenance.sourceItemIds,
     }
   }
 
@@ -111,7 +122,10 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
       const res = await fetch("/api/newsroom/draft", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ topic: ai.topic, lengthHint: ai.length, themeId: ai.themeId || undefined, blogType: f.blog_type }),
+        // groundFromNews retrieves recent stored stories matching the topic
+        // and the theme, so a draft from here is built on reported facts
+        // rather than the model's priors.
+        body: JSON.stringify({ topic: ai.topic, lengthHint: ai.length, themeId: ai.themeId || undefined, blogType: f.blog_type, groundFromNews: ai.ground }),
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || "draft failed")
@@ -121,6 +135,10 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
         content: d.content || f.content,
         tags: Array.isArray(d.suggestedTags) && d.suggestedTags.length ? d.suggestedTags.join(", ") : f.tags,
         sentiment: d.sentiment || f.sentiment,
+      })
+      setProvenance({
+        sources: Array.isArray(d.sources) ? d.sources : [],
+        sourceItemIds: Array.isArray(d.usedSourceItemIds) ? d.usedSourceItemIds : [],
       })
     } catch (e: any) {
       setErr(e?.message || "draft failed")
@@ -254,6 +272,16 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
               </select>
             </label>
           </div>
+          <label className="flex items-start gap-2 text-xs text-muted-foreground">
+            <input type="checkbox" checked={ai.ground} onChange={(e) => setAi({ ...ai, ground: e.target.checked })}
+              className="mt-0.5 size-3.5 accent-[var(--accent)]" />
+            <span>Ground in fetched news — build the piece on recent stories matching the topic and theme, and record them as sources. Turn off to write from the topic alone.</span>
+          </label>
+          {provenance.sourceItemIds.length > 0 && (
+            <p role="status" className="text-xs text-muted-foreground">
+              Grounded in {provenance.sourceItemIds.length} {provenance.sourceItemIds.length === 1 ? "story" : "stories"}; saved with the article.
+            </p>
+          )}
           <button onClick={aiDraft} disabled={drafting || !ai.topic.trim()}
             className="w-full inline-flex items-center justify-center gap-2 h-9 px-4 rounded-md text-sm disabled:opacity-50"
             style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>

@@ -24,6 +24,8 @@ interface NewsItem {
   id: string; title: string; url: string; summary: string | null; source: string
   publishedAt: string | null; region: string | null; topics: string[]
   sentiment: number | null; provider: string; imageUrl: string | null
+  /** news_source_items row id, present once the fetch has been persisted. */
+  storedId: string | null
 }
 interface ProviderResult { provider: string; ok: boolean; count: number; error?: string }
 
@@ -42,6 +44,8 @@ export function NewsSourcesClient({ providers, regions, topics }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState("")
   const [draftingId, setDraftingId] = useState<string | null>(null)
+  const [picked, setPicked] = useState<string[]>([])
+  const [stored, setStored] = useState<number | null>(null)
 
   const toggle = (arr: string[], id: string) => (arr.includes(id) ? arr.filter((x) => x !== id) : [...arr, id])
 
@@ -57,7 +61,10 @@ export function NewsSourcesClient({ providers, regions, topics }: Props) {
       if (!res.ok) throw new Error(data?.error ?? `Fetch failed (${res.status})`)
       setItems(data.items ?? [])
       setProviderResults(data.providerResults ?? [])
-      if (data.error) setError(data.error)
+      setStored(typeof data.stored === "number" ? data.stored : null)
+      // Selections refer to the previous feed; keep only what came back.
+      setPicked((prev) => prev.filter((id) => (data.items ?? []).some((i: NewsItem) => i.storedId === id)))
+      if (data.error || data.storeError) setError(data.error ?? data.storeError)
     } catch (e: any) { setError(e?.message ?? "Fetch failed") }
     finally { setBusy(false) }
   }
@@ -70,36 +77,55 @@ export function NewsSourcesClient({ providers, regions, topics }: Props) {
     return items.filter((it) => `${it.title} ${it.summary ?? ""} ${it.source}`.toLowerCase().includes(q))
   }, [items, query])
 
-  async function draftFrom(item: NewsItem) {
-    setDraftingId(item.id); setError(null)
+  /**
+   * Draft from one story, or from every story the editor ticked.
+   *
+   * The stories are passed as sourceItemIds, so the server injects their
+   * reported facts and returns the provenance. Previously the item was
+   * flattened into the topic string and the article recorded nothing about
+   * what it was built from.
+   */
+  async function draft(items: NewsItem[], key: string) {
+    const grounded = items.map((i) => i.storedId).filter((id): id is string => !!id)
+    setDraftingId(key); setError(null)
     try {
-      const seed = [
-        `Source: ${item.source}`,
-        item.publishedAt ? `Published: ${new Date(item.publishedAt).toISOString().slice(0, 10)}` : null,
-        `Headline: ${item.title}`,
-        item.summary ? `Summary: ${item.summary}` : null,
-        `URL: ${item.url}`,
-        "",
-        `Write the newsroom article analyzing this story for a VC / private-markets audience. Use the headline as the launchpad; explain why it matters for funds, founders, and LPs; cite the source inline as (${item.source}, ${item.publishedAt ? new Date(item.publishedAt).getUTCFullYear() : new Date().getUTCFullYear()}).`,
-      ].filter(Boolean).join("\n")
+      const lead = items[0]
+      const topic = grounded.length
+        ? (items.length === 1
+            ? `${lead.title} — analyse this story for a VC and private-markets audience: why it matters to funds, founders and LPs.`
+            : `A synthesis of ${items.length} related stories, led by "${lead.title}" — what the pattern across them means for funds, founders and LPs.`)
+        // Not persisted (the store failed, or the provider is unmapped), so the
+        // facts have to travel in the prompt or they are lost entirely.
+        : [
+            `Source: ${lead.source}`,
+            lead.publishedAt ? `Published: ${new Date(lead.publishedAt).toISOString().slice(0, 10)}` : null,
+            `Headline: ${lead.title}`,
+            lead.summary ? `Summary: ${lead.summary}` : null,
+            `URL: ${lead.url}`,
+            "",
+            `Write the newsroom article analysing this story for a VC / private-markets audience, citing the source inline as (${lead.source}, ${lead.publishedAt ? new Date(lead.publishedAt).getUTCFullYear() : new Date().getUTCFullYear()}).`,
+          ].filter(Boolean).join("\n")
 
       const res = await fetch("/api/newsroom/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topic: seed, blogType: "Analysis" }),
+        body: JSON.stringify({ topic, blogType: "Analysis", sourceItemIds: grounded }),
       })
       const data = await res.json().catch(() => ({}))
       if (!res.ok) throw new Error(data?.error ?? `Draft failed (${res.status})`)
       sessionStorage.setItem("newsroom:draft-from-source", JSON.stringify({
         headline: data.headline, subheadline: data.subheadline, content: data.content,
         suggestedTags: data.suggestedTags, sentiment: data.sentiment,
-        sourceUrl: item.url, sourceName: item.source, sourceDate: item.publishedAt,
-        imageUrl: item.imageUrl ?? null,
+        sources: data.sources ?? [], sourceItemIds: data.usedSourceItemIds ?? [],
+        sourceUrl: lead.url, sourceName: lead.source, sourceDate: lead.publishedAt,
+        imageUrl: lead.imageUrl ?? null,
       }))
       router.push("/newsroom/new?from-source=1")
     } catch (e: any) { setError(e?.message ?? "Draft failed") }
     finally { setDraftingId(null) }
   }
+
+  const pickedItems = items.filter((i) => i.storedId && picked.includes(i.storedId))
 
   const haveAnyAvailable = providers.some((p) => p.available)
 
@@ -206,7 +232,26 @@ export function NewsSourcesClient({ providers, regions, topics }: Props) {
             className="w-full h-9 pl-8 pr-3 text-sm border border-border rounded-md bg-card outline-none focus:border-[var(--accent)]" />
         </div>
         <span className="text-xs text-muted-foreground font-mono">{filtered.length}/{items.length}</span>
+        {stored !== null && (
+          <span className="font-mono text-[11px] text-muted-foreground" title="New stories saved for grounding. Ones already stored are not counted again.">
+            · {stored} new stored
+          </span>
+        )}
       </div>
+
+      {/* Grounding selection */}
+      {pickedItems.length > 0 && (
+        <div className="card-elev flex flex-wrap items-center gap-3 rounded-xl border border-border p-3 text-sm">
+          <span>{pickedItems.length} {pickedItems.length === 1 ? "story" : "stories"} selected as sources.</span>
+          <button type="button" onClick={() => draft(pickedItems, "selection")} disabled={draftingId !== null}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-xs disabled:opacity-50" style={primaryBtn}>
+            {draftingId === "selection"
+              ? <><Loader2 className="h-3 w-3 animate-spin" /> Drafting…</>
+              : <><Sparkles className="h-3 w-3" /> Draft from these {pickedItems.length}</>}
+          </button>
+          <button type="button" onClick={() => setPicked([])} className="h-8 px-2 text-xs text-muted-foreground hover:text-foreground">Clear</button>
+        </div>
+      )}
 
       {/* Results */}
       <div className="space-y-3">
@@ -217,18 +262,28 @@ export function NewsSourcesClient({ providers, regions, topics }: Props) {
             {items.length === 0 ? "No stories returned. Adjust topics + providers and re-fetch." : "No results match your filter."}
           </div>
         ) : filtered.map((item) => (
-          <NewsCard key={item.id} item={item} onDraft={() => draftFrom(item)} drafting={draftingId === item.id} />
+          <NewsCard key={item.id} item={item} onDraft={() => draft([item], item.id)} drafting={draftingId === item.id}
+            picked={!!item.storedId && picked.includes(item.storedId)}
+            onPick={item.storedId ? () => setPicked(toggle(picked, item.storedId!)) : undefined} />
         ))}
       </div>
     </div>
   )
 }
 
-function NewsCard({ item, onDraft, drafting }: { item: NewsItem; onDraft: () => void; drafting: boolean }) {
+function NewsCard({ item, onDraft, drafting, picked, onPick }: {
+  item: NewsItem; onDraft: () => void; drafting: boolean; picked: boolean; onPick?: () => void
+}) {
   const ago = relativeTime(item.publishedAt)
   return (
     <article className="card-elev border border-border rounded-xl p-4 hover:shadow-[var(--shadow-pop)] transition-shadow">
       <div className="flex items-start gap-3">
+        {onPick && (
+          <label className="flex shrink-0 items-center pt-1" title="Use this story to ground a draft">
+            <input type="checkbox" checked={picked} onChange={onPick} className="size-4 accent-[var(--accent)]" />
+            <span className="sr-only">Select “{item.title}” as a source</span>
+          </label>
+        )}
         {item.imageUrl ? (
           <a href={item.url} target="_blank" rel="noreferrer" className="block w-24 h-24 md:w-32 md:h-24 shrink-0 rounded-md overflow-hidden border border-border bg-foreground/5">
             {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -67,20 +67,27 @@ export async function POST(req: Request) {
   const sourcePdfUrl = b.source_pdf_url ? String(b.source_pdf_url) : null
   const sentiment = ARTICLE_SENTIMENTS.includes(b.sentiment) ? b.sentiment : null
   const publishNow = status === "published"
+  // Provenance from a grounded draft: which stories the piece was built on.
+  const sources = Array.isArray(b.sources) ? b.sources.slice(0, 20) : null
+  const sourceItemIds = Array.isArray(b.source_item_ids)
+    ? b.source_item_ids.map(String).slice(0, 20) : []
 
   try {
     const slug = await ensureUniqueSlug(slugify(headline))
     const withSentiment = await hasSentiment()
-    const tagsJson = JSON.stringify(tags)
 
+    // news_articles.tags is text[], not jsonb. This passed JSON.stringify(tags)
+    // with a ::jsonb cast, so every create failed with "column tags is of type
+    // text[] but expression is of type jsonb" — the portal could not file an
+    // article at all. The driver maps a JS array to a Postgres array directly.
     const rows = withSentiment
       ? await sql`
-          INSERT INTO news_articles (headline, subheadline, content, author, blog_type, tags, status, image_url, slug, scheduled_for, source_pdf_url, sentiment, published_at, created_by)
-          VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, ${tagsJson}::jsonb, ${status}, ${imageUrl}, ${slug}, ${scheduledFor}, ${sourcePdfUrl}, ${sentiment}, ${publishNow ? new Date().toISOString() : null}, ${staff.email})
+          INSERT INTO news_articles (headline, subheadline, content, author, blog_type, tags, status, image_url, slug, scheduled_for, source_pdf_url, sentiment, published_at, created_by, sources, source_item_ids)
+          VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, ${tags}, ${status}, ${imageUrl}, ${slug}, ${scheduledFor}, ${sourcePdfUrl}, ${sentiment}, ${publishNow ? new Date().toISOString() : null}, ${staff.email}, ${sources ? JSON.stringify(sources) : null}::jsonb, ${sourceItemIds})
           RETURNING *`
       : await sql`
-          INSERT INTO news_articles (headline, subheadline, content, author, blog_type, tags, status, image_url, slug, scheduled_for, source_pdf_url, published_at, created_by)
-          VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, ${tagsJson}::jsonb, ${status}, ${imageUrl}, ${slug}, ${scheduledFor}, ${sourcePdfUrl}, ${publishNow ? new Date().toISOString() : null}, ${staff.email})
+          INSERT INTO news_articles (headline, subheadline, content, author, blog_type, tags, status, image_url, slug, scheduled_for, source_pdf_url, published_at, created_by, sources, source_item_ids)
+          VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, ${tags}, ${status}, ${imageUrl}, ${slug}, ${scheduledFor}, ${sourcePdfUrl}, ${publishNow ? new Date().toISOString() : null}, ${staff.email}, ${sources ? JSON.stringify(sources) : null}::jsonb, ${sourceItemIds})
           RETURNING *`
 
     await sql`INSERT INTO company_audit_log (staff_id, staff_email, action, target, detail)
