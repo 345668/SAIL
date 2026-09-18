@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react"
 import { Loader2, AlertTriangle, CheckCircle2, Save, Trash2, KeyRound, Globe, Lock, Eye, EyeOff } from "lucide-react"
 
-interface KeyStatus { name: string; set: boolean; source: "db" | "env" | "none"; masked: string | null }
+interface KeyStatus { name: string; set: boolean; source: "db" | "env" | "none"; masked: string | null; encrypted: boolean }
 
 const PROVIDER_META: Record<string, { label: string; help: string; docs: string }> = {
   ALPHA_VANTAGE_API_KEY: { label: "Alpha Vantage", help: "NEWS_SENTIMENT — global feed with topic filter + sentiment scores. Free: 25 req/day.", docs: "https://www.alphavantage.co/support/#api-key" },
@@ -43,6 +43,25 @@ export function NewsApiKeysClient() {
   }
   useEffect(() => { void load() }, [])
 
+  /** Encrypt anything still stored in the clear, and drop unrecognised keys. */
+  async function secureStored() {
+    setBusy(true); setError(null); setSuccess(null)
+    try {
+      const res = await fetch("/api/news/api-keys", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "secure" }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error ?? `Failed (${res.status})`)
+      setRows(Array.isArray(data.keys) ? data.keys : [])
+      setSuccess("Stored keys are now encrypted at rest.")
+    } catch (e: any) { setError(e?.message ?? "Failed") }
+    finally { setBusy(false) }
+  }
+
+  const plaintext = rows.filter((r) => r.source === "db" && !r.encrypted)
+
   async function saveOne(name: string, value: string) {
     setBusy(true); setError(null); setSuccess(null)
     try {
@@ -65,8 +84,27 @@ export function NewsApiKeysClient() {
       <p className="text-sm text-muted-foreground">
         Configure provider API keys without editing <span className="font-mono">.env.local</span>. DB-stored keys take
         precedence over env-vars; clearing a key falls back to the env-var if one is set. Keys are never logged and only
-        the last four characters are revealable.
+        the last four characters are revealable. Stored keys are encrypted at rest under{" "}
+        <span className="font-mono">CONFIG_ENC_KEY</span>, the same key the Anker app decrypts them with when it calls a
+        provider.
       </p>
+
+      {plaintext.length > 0 && (
+        <div className="rounded-lg border p-4 text-sm" style={{ borderColor: "color-mix(in oklab, var(--danger) 35%, transparent)", background: "color-mix(in oklab, var(--danger) 6%, transparent)" }}>
+          <div className="font-semibold" style={{ color: "var(--danger)" }}>
+            {plaintext.length} stored {plaintext.length === 1 ? "key is" : "keys are"} still in plaintext
+          </div>
+          <p className="mt-1 text-muted-foreground">
+            They were saved before encryption was added. They keep working, but anyone who can read the settings row can
+            read them. Encrypting happens in place — you do not need the values again.
+          </p>
+          <button type="button" onClick={secureStored} disabled={busy}
+            className="mt-3 inline-flex h-9 items-center gap-2 rounded-md px-3 text-sm disabled:opacity-50"
+            style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
+            {busy ? "Working…" : "Encrypt stored keys"}
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="px-3 py-2 text-xs font-mono rounded-md inline-flex items-center gap-2 border" style={{ color: "var(--danger)", borderColor: "color-mix(in oklab, var(--danger) 30%, transparent)", background: "color-mix(in oklab, var(--danger) 6%, transparent)" }}>

@@ -18,9 +18,18 @@
  *   }
  * Keys are matched verbatim so the env-var names and the DB names are
  * always the same — easier to grep and audit.
+ *
+ * At rest the DB values are ENCRYPTED, the same as platform_api_keys: each one
+ * is an enc:v1: payload under CONFIG_ENC_KEY. That scheme specifically, and not
+ * the portal's own lib/crypto.ts, because this row is read by BOTH apps — the
+ * portal writes it and the tenant app reads it at fetch time, so anything the
+ * tenant cannot decrypt would reach a provider as a literal "gcm$…" string and
+ * fail as an invalid key. Reads still accept plaintext, so values written
+ * before this stay working until they are re-saved.
  */
 
 import { sql } from "@/lib/db"
+import { decryptSecret, encryptSecret, hasEncryptionKey, isEncrypted } from "@/lib/config-crypto"
 
 export const NEWS_KEY_NAMES = [
   "ALPHA_VANTAGE_API_KEY",
@@ -35,6 +44,26 @@ export type NewsKeyName = (typeof NEWS_KEY_NAMES)[number]
 
 type KeyMap = Partial<Record<NewsKeyName, string>>
 
+/**
+ * Coerce a system_settings.value into a plain object.
+ *
+ * jsonb comes back parsed from some drivers and as a string from others, and
+ * the string form can itself be a JSON-encoded string, so one parse can yield
+ * another string rather than an object. The previous version accepted that
+ * result as the settings object, and the save path then spread it — spreading
+ * a string produces one numeric key per character. The live row had grown to
+ * 6,771 char-indexed entries and 27 KB around six real keys, doubling with
+ * every save. Unwrap until it is an object, and refuse anything else.
+ */
+function normalizeSettings(raw: unknown): Record<string, any> | null {
+  let value: unknown = raw
+  for (let i = 0; i < 3 && typeof value === "string"; i++) {
+    try { value = JSON.parse(value) } catch { return null }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  return value as Record<string, any>
+}
+
 let _cache: { at: number; map: KeyMap } | null = null
 const TTL_MS = 5_000
 
@@ -42,20 +71,18 @@ export async function readNewsKeys(): Promise<KeyMap> {
   if (_cache && Date.now() - _cache.at < TTL_MS) return _cache.map
   try {
     const rows = await sql`SELECT value FROM system_settings WHERE key = 'news_providers_v1' LIMIT 1`
-    const raw = rows[0]?.value
+    const obj = normalizeSettings(rows[0]?.value)
     const map: KeyMap = {}
-    // Neon serverless returns jsonb as a parsed JS value, but some other
-    // drivers / older versions return the raw JSON string — handle both.
-    let obj: Record<string, any> | null = null
-    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
-      obj = raw as Record<string, any>
-    } else if (typeof raw === "string") {
-      try { obj = JSON.parse(raw) } catch { obj = null }
-    }
     if (obj) {
       for (const k of NEWS_KEY_NAMES) {
         const val = obj[k]
-        if (typeof val === "string" && val.trim()) map[k] = val.trim()
+        if (typeof val !== "string" || !val.trim()) continue
+        // Values written before encryption are plaintext and stay readable,
+        // so a deploy does not knock the providers offline before the backfill
+        // runs. decryptSecret returns null on a bad key or tampered payload.
+        const plain = isEncrypted(val) ? decryptSecret(val) : val
+        if (typeof plain === "string" && plain.trim()) map[k] = plain.trim()
+        else console.warn(`[news/runtime-keys] ${k} could not be decrypted — is CONFIG_ENC_KEY the one it was written with?`)
       }
     }
     _cache = { at: Date.now(), map }
@@ -66,6 +93,30 @@ export async function readNewsKeys(): Promise<KeyMap> {
     const map: KeyMap = {}
     _cache = { at: Date.now(), map }
     return map
+  }
+}
+
+/**
+ * Which stored keys are already encrypted at rest.
+ *
+ * readNewsKeys decrypts, so callers cannot tell from its result whether a value
+ * is protected. The keys admin needs to show that, and to know whether the
+ * one-off backfill still has work to do.
+ */
+export async function readNewsKeyEncryptionState(): Promise<Partial<Record<NewsKeyName, boolean>>> {
+  try {
+    const rows = await sql`SELECT value FROM system_settings WHERE key = 'news_providers_v1' LIMIT 1`
+    const obj = normalizeSettings(rows[0]?.value)
+    const out: Partial<Record<NewsKeyName, boolean>> = {}
+    if (obj) {
+      for (const k of NEWS_KEY_NAMES) {
+        const v = obj[k]
+        if (typeof v === "string" && v.trim()) out[k] = isEncrypted(v)
+      }
+    }
+    return out
+  } catch {
+    return {}
   }
 }
 
@@ -113,27 +164,43 @@ export async function saveNewsKeys(
 
   // Read current value. Be tolerant of jsonb returning as object OR string
   // depending on driver version.
-  let current: Record<string, any> = {}
+  // These are third-party credentials, so they are stored encrypted, the same
+  // as platform_api_keys. Refuse rather than fall back to plaintext: a silent
+  // downgrade would leave keys in the clear exactly when someone believed they
+  // were protected.
+  if (!hasEncryptionKey()) {
+    throw new Error("CONFIG_ENC_KEY is not set — refusing to store provider keys unencrypted.")
+  }
+
+  let stored: unknown = null
   try {
     const rows = await sql`SELECT value FROM system_settings WHERE key = 'news_providers_v1' LIMIT 1`
-    const raw = rows[0]?.value
-    if (raw && typeof raw === "object" && !Array.isArray(raw)) current = raw
-    else if (typeof raw === "string") {
-      try { current = JSON.parse(raw) ?? {} } catch { current = {} }
-    }
+    stored = rows[0]?.value
   } catch (e: any) {
     console.warn("[news/runtime-keys] read current failed (continuing with empty):", e?.message)
   }
+  const current: Record<string, any> = normalizeSettings(stored) ?? {}
 
-  const merged: Record<string, string> = { ...current }
+  // Carry forward only the keys this module owns. Anything else in the row is
+  // not ours to preserve, and it is how the char-indexed junk accumulated.
+  const merged: Record<string, string> = {}
+  for (const k of NEWS_KEY_NAMES) {
+    const existing = current[k]
+    if (typeof existing === "string" && existing.trim()) merged[k] = existing.trim()
+  }
   for (const k of NEWS_KEY_NAMES) {
     if (!(k in updates)) continue
     const v = updates[k]
     if (typeof v === "string" && v.trim()) {
-      merged[k] = v.trim()
+      merged[k] = encryptSecret(v.trim())
     } else {
       delete merged[k]
     }
+  }
+  // Re-encrypt anything still sitting in the row as plaintext, so the first
+  // save after this ships also retires the legacy values.
+  for (const k of Object.keys(merged) as NewsKeyName[]) {
+    if (!isEncrypted(merged[k])) merged[k] = encryptSecret(merged[k])
   }
 
   // Same FK-safety dance as patchRouterConfig.
