@@ -42,6 +42,12 @@ export const PROXY_ALLOWLIST = [
   "admin/email-check/fix",
   "admin/email/sync-events",
   "admin/email/outbox",
+  // Early-access queue. Relayed rather than ported because inviting someone
+  // mints a single-use signup credential and emails it: the token has to be
+  // minted by the app that will later redeem it, and only that app's database
+  // can make "accepted" an observed fact. A copy here would be a second way to
+  // grant access to the tenant, with its own rules to keep in step.
+  "admin/waitlist",
   // USER-SCOPED. These authenticate as a tenant user, not as an admin, so they
   // require an explicit x-portal-act-as-user alongside the bearer. Anker
   // resolves it in lib/auth/acting-user.ts: the subject must exist, is granted
