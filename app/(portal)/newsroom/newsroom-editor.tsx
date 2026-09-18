@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { Loader2, Sparkles, Save, Send, Trash2, ArrowLeft, Check } from "lucide-react"
+import { Loader2, Sparkles, Save, Send, Trash2, ArrowLeft, Check, ImageUp } from "lucide-react"
 import { ARTICLE_BLOG_TYPES, ARTICLE_SENTIMENTS, type NewsArticle } from "@/lib/newsroom"
 
 interface Theme { id: string; name: string; keywords: string[]; enabled: boolean }
@@ -52,6 +52,7 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
   const [themes, setThemes] = useState<Theme[]>([])
   const [ai, setAi] = useState({ topic: "", length: "medium", themeId: "", ground: true })
   const [drafting, setDrafting] = useState(false)
+  const [uploading, setUploading] = useState(false)
   // Which reported stories this piece was built on. Carried from the grounded
   // draft and saved with the article, so the provenance survives the draft.
   const [provenance, setProvenance] = useState<{ sources: any[]; sourceItemIds: string[] }>({ sources: [], sourceItemIds: [] })
@@ -144,6 +145,29 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
       setErr(e?.message || "draft failed")
     } finally {
       setDrafting(false)
+    }
+  }
+
+  /**
+   * Upload a cover image through the tenant relay.
+   *
+   * The bytes deliberately go to the tenant's blob store, not one of ours: the
+   * public newsroom is served by the tenant app and image_url is a path into
+   * that store, so an image uploaded anywhere else would 404 for readers.
+   */
+  async function uploadImage(file: File) {
+    setUploading(true); setErr(null)
+    try {
+      const fd = new FormData()
+      fd.append("file", file)
+      const res = await fetch("/api/anker/admin/newsroom/upload-image", { method: "POST", body: fd })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(d?.error ?? `Upload failed (${res.status})`)
+      set({ image_url: String(d.url) })
+    } catch (e: any) {
+      setErr(e?.message ?? "Image upload failed")
+    } finally {
+      setUploading(false)
     }
   }
 
@@ -318,10 +342,26 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
             <span className={label}>Schedule publish</span>
             <input type="datetime-local" value={f.scheduled_for} onChange={(e) => set({ scheduled_for: e.target.value })} className={field} />
           </label>
-          <label className="block space-y-1.5">
-            <span className={label}>Cover image URL</span>
-            <input value={f.image_url} onChange={(e) => set({ image_url: e.target.value })} className={field} />
-          </label>
+          <div className="space-y-1.5">
+            <label className="block space-y-1.5">
+              <span className={label}>Cover image</span>
+              <input value={f.image_url} onChange={(e) => set({ image_url: e.target.value })} placeholder="Paste a URL, or upload below" className={field} />
+            </label>
+            <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground hover:text-foreground">
+              {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImageUp className="h-3.5 w-3.5" />}
+              {uploading ? "Uploading…" : "Upload an image"}
+              <input type="file" accept="image/png,image/jpeg,image/webp,image/avif,image/gif" className="sr-only"
+                disabled={uploading}
+                onChange={(e) => { const file = e.target.files?.[0]; e.target.value = ""; if (file) uploadImage(file) }} />
+            </label>
+            {f.image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={f.image_url.startsWith("/") ? `/api/anker-image?path=${encodeURIComponent(f.image_url)}` : f.image_url}
+                alt="" className="h-28 w-full rounded-md border border-border object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none" }} />
+            )}
+            <p className="text-[10px] text-muted-foreground">PNG, JPEG, WebP, AVIF or GIF, up to 5 MB. Stored by the Anker app, which is what serves it on the public article.</p>
+          </div>
           <label className="block space-y-1.5">
             <span className={label}>Source PDF URL</span>
             <input value={f.source_pdf_url} onChange={(e) => set({ source_pdf_url: e.target.value })} className={field} />

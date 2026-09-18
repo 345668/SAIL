@@ -34,7 +34,9 @@ async function relay(req: Request, ctx: { params: Promise<{ path: string[] }> })
     path: (path ?? []).join("/"),
     method,
     search: url.search,
-    body: hasBody ? await req.text() : null,
+    // Read as bytes, not text. Decoding a multipart upload to a string and
+    // re-encoding it mangles every non-UTF-8 byte, which is most of an image.
+    body: hasBody ? await req.arrayBuffer() : null,
     contentType: hasBody ? (req.headers.get("content-type") ?? "application/json") : null,
     staffEmail: staff.email,
     // The only client header relayed. The staff session is already verified

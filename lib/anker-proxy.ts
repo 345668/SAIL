@@ -48,6 +48,12 @@ export const PROXY_ALLOWLIST = [
   // can make "accepted" an observed fact. A copy here would be a second way to
   // grant access to the tenant, with its own rules to keep in step.
   "admin/waitlist",
+  // Newsroom hero images. Relayed for a reason the others do not share: the
+  // public newsroom is served by the tenant, and an article's image_url is a
+  // tenant-relative path into its private blob store. Uploading to a store of
+  // our own would produce URLs an-ker.de cannot serve, so the bytes have to
+  // land where the reader will fetch them from.
+  "admin/newsroom/upload-image",
   // USER-SCOPED. These authenticate as a tenant user, not as an admin, so they
   // require an explicit x-portal-act-as-user alongside the bearer. Anker
   // resolves it in lib/auth/acting-user.ts: the subject must exist, is granted
