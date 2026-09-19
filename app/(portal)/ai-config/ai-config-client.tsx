@@ -1,12 +1,24 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Loader2, Check, RotateCcw } from "lucide-react"
+import { Loader2, Check, RotateCcw, KeyRound, ShieldAlert } from "lucide-react"
 import { AI_TASKS, PROVIDERS, type AiRouterConfig } from "@/lib/ai-tasks"
 
 const TIER_LABEL: Record<string, string> = { fast: "Fast", balanced: "Balanced", deep: "Deep" }
 
-export function AiConfigClient({ initial }: { initial: AiRouterConfig }) {
+interface KeyStatus { name: string; set: boolean; last4: string | null; encrypted: boolean }
+
+const KEY_META: Record<string, { label: string; hint: string }> = {
+  qwenApiKey: { label: "Qwen — Alibaba Model Studio", hint: "DashScope compatible-mode key. Pair it with the workspace id below when the key is workspace-scoped (sk-ws-…)." },
+  anthropicApiKey: { label: "Anthropic", hint: "Claude models." },
+  openaiApiKey: { label: "OpenAI", hint: "GPT models and embeddings." },
+  geminiApiKey: { label: "Google Gemini", hint: "Gemini models." },
+  mistralApiKey: { label: "Mistral", hint: "Currently the forced provider unless you change it above." },
+}
+
+export function AiConfigClient({ initial, keys, canEncrypt }: { initial: AiRouterConfig; keys: KeyStatus[]; canEncrypt: boolean }) {
+  const [keyState, setKeyState] = useState<KeyStatus[]>(keys)
+  const [drafts, setDrafts] = useState<Record<string, string>>({})
   const [cfg, setCfg] = useState<AiRouterConfig>(initial)
   const [dirty, setDirty] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -37,16 +49,22 @@ export function AiConfigClient({ initial }: { initial: AiRouterConfig }) {
       const res = await fetch("/api/ai-config", {
         method: "PATCH",
         headers: { "content-type": "application/json" },
+        // Only keys the operator actually typed are sent. An untouched field
+        // must not post an empty string, which would clear a stored key.
         body: JSON.stringify({
           enabled: cfg.enabled,
           modelOverride: cfg.modelOverride,
           providerOverride: cfg.providerOverride,
           providerStrict: cfg.providerStrict,
+          qwenWorkspaceId: cfg.qwenWorkspaceId ?? "",
+          ...Object.fromEntries(Object.entries(drafts).filter(([, v]) => v !== undefined)),
         }),
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || "save failed")
       setCfg({ ...cfg, ...d.config })
+      if (Array.isArray(d.keys)) setKeyState(d.keys)
+      setDrafts({})
       setDirty(false)
       setSaved(true)
     } catch (e: any) {
@@ -88,6 +106,62 @@ export function AiConfigClient({ initial }: { initial: AiRouterConfig }) {
             Strict — pin the forced provider with no failover
           </label>
         </div>
+      </section>
+
+      {/* Provider credentials */}
+      <section className="card-elev rounded-xl border border-border p-5">
+        <h2 className="flex items-center gap-2 font-display text-lg"><KeyRound className="h-4 w-4" /> Provider keys</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          The credentials the tenant app uses for every AI task, including Call Intelligence. Stored encrypted under{" "}
+          <code className="font-mono">CONFIG_ENC_KEY</code>; they are never sent back to this page and never written to
+          the audit log. Paste a value to set or rotate it, and leave a field blank to keep what is stored.
+        </p>
+        {!canEncrypt && (
+          <p role="alert" className="mt-3 flex items-start gap-2 rounded-md border p-3 text-sm" style={{ borderColor: "color-mix(in oklab, var(--danger) 35%, transparent)", background: "color-mix(in oklab, var(--danger) 6%, transparent)" }}>
+            <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" style={{ color: "var(--danger)" }} />
+            <span>CONFIG_ENC_KEY is not set on this deployment, so keys cannot be stored. Saving one will be refused rather than written in the clear.</span>
+          </p>
+        )}
+        <div className="mt-4 space-y-4">
+          {keyState.map((k) => (
+            <div key={k.name} className="border-t border-border pt-4 first:border-0 first:pt-0">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <span className="text-sm">{KEY_META[k.name]?.label ?? k.name}</span>
+                {k.set
+                  ? <span className="rounded px-1.5 py-0.5 text-[11px]" style={k.encrypted
+                      ? { background: "color-mix(in oklab, var(--ok) 15%, transparent)", color: "var(--ok)" }
+                      : { background: "color-mix(in oklab, var(--danger) 12%, transparent)", color: "var(--danger)" }}>
+                      {k.encrypted ? "stored · encrypted" : `stored · PLAINTEXT ••••${k.last4 ?? ""}`}
+                    </span>
+                  : <span className="text-[11px] text-muted-foreground">not set</span>}
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">{KEY_META[k.name]?.hint}</p>
+              <input
+                type="password" autoComplete="off" spellCheck={false}
+                value={drafts[k.name] ?? ""}
+                onChange={(e) => { setDrafts((p) => ({ ...p, [k.name]: e.target.value })); setDirty(true) }}
+                placeholder={k.set ? "Paste a new value to rotate" : "Paste API key"}
+                className="mt-2 h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-[var(--accent)]"
+              />
+            </div>
+          ))}
+          <div className="border-t border-border pt-4">
+            <label className="block text-sm">Qwen workspace id
+              <input
+                value={String(cfg.qwenWorkspaceId ?? "")}
+                onChange={(e) => mutate((c) => ({ ...c, qwenWorkspaceId: e.target.value }))}
+                placeholder="llm-…"
+                className="mt-2 h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-[var(--accent)]"
+              />
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">An identifier, not a credential, so it is stored and shown in the clear.</p>
+          </div>
+        </div>
+        {keyState.some((k) => k.set && !k.encrypted) && (
+          <p className="mt-4 text-xs" style={{ color: "var(--danger)" }}>
+            A stored key is still in plaintext from before encryption was added. Saving anything on this page re-encrypts it in place — you do not need the value again.
+          </p>
+        )}
       </section>
 
       {/* Per-task table */}
