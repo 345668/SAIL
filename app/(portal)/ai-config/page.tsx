@@ -3,6 +3,7 @@ import { PageShell } from "@/components/page-shell"
 import { EMPTY_AI_CONFIG, type AiRouterConfig } from "@/lib/ai-tasks"
 import { AiConfigClient } from "./ai-config-client"
 import { hasEncryptionKey, isEncrypted } from "@/lib/config-crypto"
+import { AiUsagePanel } from "./ai-usage-panel"
 
 export const dynamic = "force-dynamic"
 
@@ -39,7 +40,7 @@ export default async function AiConfigPage() {
     <PageShell
       eyebrow="Platform"
       title="AI config"
-      description="The global AI router — force a provider, override the model per task, or switch a task off. Writes the same shared-DB knob (system_settings/ai_router_v1) the tenant router reads, so changes take effect platform-wide."
+      description="The global AI router — force a provider, override the model per task, or switch a task off, then see what the router actually did. Writes the same shared-DB knob (system_settings/ai_router_v1) the tenant router reads, so changes take effect platform-wide."
     >
       {error ? (
         <div className="rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">
@@ -49,6 +50,9 @@ export default async function AiConfigPage() {
       ) : (
         <AiConfigClient initial={config} keys={keys} canEncrypt={hasEncryptionKey()} />
       )}
+      {/* The other half of the job. Setting a key and flipping a switch are
+          only useful if you can see what happened next. */}
+      <AiUsagePanel />
     </PageShell>
   )
 }
