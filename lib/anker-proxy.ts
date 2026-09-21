@@ -24,6 +24,12 @@
  */
 export const PROXY_ALLOWLIST = [
   // AI-backed — engine needs the tenant's provider / model router / web search.
+  // Provider re-probe. The only control on the tenant's AI-config page that
+  // this portal could not reproduce by writing the shared DB: resolveProvider()
+  // memoises per process, so after starting Ollama or rotating a key someone
+  // has to tell the tenant to look again. Relayed rather than ported because
+  // the thing being reset lives in the tenant's process, not in a table.
+  "admin/system",
   "admin/enrich",
   "admin/deep-research",
   "admin/inbox",

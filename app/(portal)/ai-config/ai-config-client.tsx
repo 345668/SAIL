@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { Loader2, Check, RotateCcw, KeyRound, ShieldAlert } from "lucide-react"
+import { Loader2, Check, RotateCcw, KeyRound, ShieldAlert, RefreshCw } from "lucide-react"
 import { AI_TASKS, PROVIDERS, type AiRouterConfig } from "@/lib/ai-tasks"
 
 const TIER_LABEL: Record<string, string> = { fast: "Fast", balanced: "Balanced", deep: "Deep" }
@@ -24,6 +24,8 @@ export function AiConfigClient({ initial, keys, canEncrypt }: { initial: AiRoute
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [reprobing, setReprobing] = useState(false)
+  const [reprobed, setReprobed] = useState(false)
 
   const groups = useMemo(() => {
     const m = new Map<string, typeof AI_TASKS>()
@@ -41,6 +43,29 @@ export function AiConfigClient({ initial, keys, canEncrypt }: { initial: AiRoute
   }
 
   const isEnabled = (task: string) => cfg.enabled[task] !== false
+
+  /**
+   * Tell the tenant to look again.
+   *
+   * Everything else on this page takes effect by writing the shared config —
+   * the tenant re-reads it within seconds. The resolved PROVIDER is different:
+   * it is memoised in the tenant's process, so starting Ollama or rotating a
+   * key outside this page leaves it serving the old answer until something
+   * resets it. Relayed through /api/anker because the thing being reset is in
+   * that process, not in a table.
+   */
+  async function reprobe() {
+    setReprobing(true); setErr(null); setReprobed(false)
+    try {
+      const res = await fetch("/api/anker/admin/system", { method: "POST" })
+      if (!res.ok) throw new Error((await res.json().catch(() => null))?.error || `re-probe failed (${res.status})`)
+      setReprobed(true)
+    } catch (e: any) {
+      setErr(e?.message ?? "Re-probe failed")
+    } finally {
+      setReprobing(false)
+    }
+  }
 
   async function save() {
     setBusy(true)
@@ -241,6 +266,15 @@ export function AiConfigClient({ initial, keys, canEncrypt }: { initial: AiRoute
             <RotateCcw className="w-3.5 h-3.5" /> Discard
           </button>
         )}
+        <button
+          onClick={reprobe}
+          disabled={reprobing}
+          title="Re-probe the tenant's provider. Needed after starting a local daemon or rotating a key elsewhere — the resolved provider is cached in that process."
+          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          {reprobing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />} Reconnect
+        </button>
+        {reprobed && <span className="text-sm" style={{ color: "var(--ok)" }}>Provider re-probed.</span>}
         {saved && !dirty && <span className="text-sm" style={{ color: "var(--ok)" }}>Saved.</span>}
         {err && <span className="text-sm text-[var(--danger)]">{err}</span>}
       </div>
