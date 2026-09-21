@@ -24,6 +24,7 @@ interface Totals {
   failures: number
   suppressed: number
   failovers: number
+  attributed: number
   outputTokens: number | null
   p50: number | null
   p95: number | null
@@ -36,13 +37,14 @@ async function load(): Promise<{
   failures: Array<{ at: string; task: string | null; provider: string; status: number | null; error: string | null }>
   error: string | null
 }> {
-  const empty = { calls: 0, failures: 0, suppressed: 0, failovers: 0, outputTokens: null, p50: null, p95: null }
+  const empty = { calls: 0, failures: 0, suppressed: 0, failovers: 0, attributed: 0, outputTokens: null, p50: null, p95: null }
   try {
     const [t] = (await sql`
       SELECT COUNT(*) FILTER (WHERE provider <> 'disabled')::int AS calls,
              COUNT(*) FILTER (WHERE NOT ok AND provider <> 'disabled')::int AS failures,
              COUNT(*) FILTER (WHERE provider = 'disabled')::int AS suppressed,
              COUNT(*) FILTER (WHERE attempt > 0)::int AS failovers,
+             COUNT(*) FILTER (WHERE workspace_id IS NOT NULL)::int AS attributed,
              SUM(output_tokens)::bigint AS output_tokens,
              PERCENTILE_DISC(0.5) WITHIN GROUP (ORDER BY duration_ms) AS p50,
              PERCENTILE_DISC(0.95) WITHIN GROUP (ORDER BY duration_ms) AS p95
@@ -80,6 +82,7 @@ async function load(): Promise<{
         failures: Number(t?.failures ?? 0),
         suppressed: Number(t?.suppressed ?? 0),
         failovers: Number(t?.failovers ?? 0),
+        attributed: Number(t?.attributed ?? 0),
         outputTokens: t?.output_tokens == null ? null : Number(t.output_tokens),
         p50: t?.p50 == null ? null : Number(t.p50),
         p95: t?.p95 == null ? null : Number(t.p95),
@@ -135,7 +138,16 @@ export async function AiUsagePanel() {
       <h2 className="text-lg font-semibold">What the router did</h2>
       <p className="mt-1 text-sm text-muted-foreground">
         Last {WINDOW_HOURS} hours. No prompts or completions are stored — only what was called, by
-        whom, and how it went.
+        whom, and how it went.{" "}
+        {/* Said plainly, because a workspace breakdown that covers a third of
+            the calls invites being read as the whole picture. */}
+        {totals.calls > 0 && totals.attributed < totals.calls ? (
+          <span>
+            {totals.attributed === 0
+              ? "None of these calls carry a workspace: attribution only exists for work started inside an assistant request, so background runs are anonymous."
+              : `${totals.attributed} of ${totals.calls} carry a workspace — attribution only exists for work started inside an assistant request.`}
+          </span>
+        ) : null}
       </p>
 
       <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-5">

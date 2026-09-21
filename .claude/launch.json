@@ -1,1 +1,6 @@
-{"version":"0.0.1","configurations":[{"name":"sail","runtimeExecutable":"npm","runtimeArgs":["run","dev"],"port":3000}]}
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "sail", "runtimeExecutable": "npm", "runtimeArgs": ["run", "dev"], "port": 3100 }
+  ]
+}
