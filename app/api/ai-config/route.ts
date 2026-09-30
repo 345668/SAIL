@@ -17,11 +17,11 @@ const KEY = "ai_router_v1"
  * never returned to the browser, and they are never written to the audit log.
  * The page gets only whether each one is set and its last four characters.
  */
-const SECRET_FIELDS = ["anthropicApiKey", "openaiApiKey", "geminiApiKey", "mistralApiKey", "qwenApiKey"] as const
+const SECRET_FIELDS = ["anthropicApiKey", "openaiApiKey", "geminiApiKey", "mistralApiKey", "qwenApiKey", "emailVerificationApiKey"] as const
 type SecretField = (typeof SECRET_FIELDS)[number]
 
 /** Plain settings the page may edit alongside the secrets. */
-const PLAIN_FIELDS = ["qwenWorkspaceId", "qwenModel", "anthropicModel", "openaiModel", "geminiModel", "mistralModel"] as const
+const PLAIN_FIELDS = ["qwenWorkspaceId", "qwenModel", "anthropicModel", "openaiModel", "geminiModel", "mistralModel", "emailVerificationProvider"] as const
 
 export interface KeyStatus { name: SecretField; set: boolean; last4: string | null; encrypted: boolean }
 

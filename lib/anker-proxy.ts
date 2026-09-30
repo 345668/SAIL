@@ -30,6 +30,9 @@ export const PROXY_ALLOWLIST = [
   // has to tell the tenant to look again. Relayed rather than ported because
   // the thing being reset lives in the tenant's process, not in a table.
   "admin/system",
+  // Status and a one-address live test for the email-verification provider
+  // whose key this portal stores (docs/architecture/13 in the tenant repo).
+  "admin/email-verification",
   "admin/enrich",
   "admin/deep-research",
   "admin/inbox",

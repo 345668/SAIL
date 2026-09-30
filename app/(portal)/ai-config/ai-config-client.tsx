@@ -14,6 +14,7 @@ const KEY_META: Record<string, { label: string; hint: string }> = {
   openaiApiKey: { label: "OpenAI", hint: "GPT models and embeddings." },
   geminiApiKey: { label: "Google Gemini", hint: "Gemini models." },
   mistralApiKey: { label: "Mistral", hint: "Currently the forced provider unless you change it above." },
+  emailVerificationApiKey: { label: "Email verification (ZeroBounce / NeverBounce)", hint: "Confirms that an investor's mailbox exists. Without it every address reads \u201cUnconfirmed\u201d and nothing is ever labelled Verified." },
 }
 
 export function AiConfigClient({ initial, keys, canEncrypt }: { initial: AiRouterConfig; keys: KeyStatus[]; canEncrypt: boolean }) {
@@ -26,6 +27,29 @@ export function AiConfigClient({ initial, keys, canEncrypt }: { initial: AiRoute
   const [err, setErr] = useState<string | null>(null)
   const [reprobing, setReprobing] = useState(false)
   const [reprobed, setReprobed] = useState(false)
+  const [testEmail, setTestEmail] = useState("")
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<string | null>(null)
+
+  /**
+   * Prove a freshly saved verification key works, by checking one address
+   * through the tenant (which holds the key and the provider adapters). One
+   * provider credit; the key itself never comes back to this page.
+   */
+  async function testVerification() {
+    setTesting(true); setTestResult(null)
+    try {
+      const res = await fetch("/api/anker/admin/email-verification", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: testEmail.trim() }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data?.error ?? `Test failed (${res.status})`)
+      setTestResult(`${data.provider} says ${data.label}${data.reason ? ` (${data.reason})` : ""} · key from ${data.keySource} · ${data.budgetLeft} checks left today.`)
+    } catch (e) {
+      setTestResult(e instanceof Error ? e.message : "The test could not run.")
+    } finally { setTesting(false) }
+  }
 
   const groups = useMemo(() => {
     const m = new Map<string, typeof AI_TASKS>()
@@ -170,6 +194,37 @@ export function AiConfigClient({ initial, keys, canEncrypt }: { initial: AiRoute
               />
             </div>
           ))}
+          <div className="border-t border-border pt-4">
+            <label className="block text-sm">Email verification provider
+              <select
+                value={String(cfg.emailVerificationProvider ?? "zerobounce")}
+                onChange={(e) => mutate((c) => ({ ...c, emailVerificationProvider: e.target.value }))}
+                className="mt-2 h-9 w-full rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-[var(--accent)]"
+              >
+                <option value="zerobounce">ZeroBounce</option>
+                <option value="neverbounce">NeverBounce</option>
+              </select>
+            </label>
+            <p className="mt-1 text-xs text-muted-foreground">Which service the key above belongs to. Save first, then test it below.</p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <input
+                value={testEmail}
+                onChange={(e) => setTestEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="h-9 flex-1 min-w-[220px] rounded-md border border-border bg-background px-2 text-sm outline-none focus:border-[var(--accent)]"
+                aria-label="Address to test"
+              />
+              <button
+                type="button" onClick={testVerification} disabled={testing || !testEmail.trim()}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm disabled:opacity-50"
+              >
+                {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                Test the key
+              </button>
+            </div>
+            {testResult && <p className="mt-2 text-xs" role="status">{testResult}</p>}
+          </div>
+
           <div className="border-t border-border pt-4">
             <label className="block text-sm">Qwen workspace id
               <input
