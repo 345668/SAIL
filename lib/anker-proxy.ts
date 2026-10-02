@@ -63,6 +63,11 @@ export const PROXY_ALLOWLIST = [
   // our own would produce URLs an-ker.de cannot serve, so the bytes have to
   // land where the reader will fetch them from.
   "admin/newsroom/upload-image",
+  // Founder campaign engine (the public /apply pipeline). The engine — assessment,
+  // matching, the send waves — runs in the tenant app, so this portal hosts the
+  // console and forwards. `campaign/<submission id>` is matched by pattern below.
+  "campaign",
+  "campaign/settings",
   // USER-SCOPED. These authenticate as a tenant user, not as an admin, so they
   // require an explicit x-portal-act-as-user alongside the bearer. Anker
   // resolves it in lib/auth/acting-user.ts: the subject must exist, is granted
@@ -84,8 +89,11 @@ export const ACT_AS_REQUIRED = new Set<string>([
 
 export type ProxyPath = (typeof PROXY_ALLOWLIST)[number]
 
-export function isProxyAllowed(path: string): path is ProxyPath {
-  return (PROXY_ALLOWLIST as readonly string[]).includes(path)
+/** Per-record paths. Anchored and id-shaped, so this cannot widen into a wildcard. */
+const PROXY_PATTERNS = [/^campaign\/[0-9a-f-]{8,40}$/i]
+
+export function isProxyAllowed(path: string): boolean {
+  return (PROXY_ALLOWLIST as readonly string[]).includes(path) || PROXY_PATTERNS.some((p) => p.test(path))
 }
 
 export interface ProxyConfig { baseUrl: string; token: string }
