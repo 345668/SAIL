@@ -9,7 +9,9 @@ const TIER_LABEL: Record<string, string> = { fast: "Fast", balanced: "Balanced",
 interface KeyStatus { name: string; set: boolean; last4: string | null; encrypted: boolean }
 
 const KEY_META: Record<string, { label: string; hint: string }> = {
-  qwenApiKey: { label: "Qwen — Alibaba Model Studio", hint: "DashScope compatible-mode key. Pair it with the workspace id below when the key is workspace-scoped (sk-ws-…)." },
+  qwenApiKey: { label: "Qwen — Alibaba Model Studio", hint: "Single-key setup (the lane keys below are preferred). Pair it with the workspace id below when the key is workspace-scoped (sk-ws-…)." },
+  qwenFreeApiKey: { label: "Qwen free lane — pay-as-you-go key", hint: "Used first, on free-tier models only, moving model to model as each free allowance runs out. Turn on \u201cfree quota only\u201d per model in the Alibaba console or it bills past the allowance. Workspace keys (sk-ws-\u2026) need the workspace id below." },
+  qwenPlanApiKey: { label: "Qwen plan lane — token-plan key", hint: "Used once every free model is spent. Token-plan keys (sk-sp-\u2026) are served from the plan endpoint automatically." },
   anthropicApiKey: { label: "Anthropic", hint: "Claude models." },
   openaiApiKey: { label: "OpenAI", hint: "GPT models and embeddings." },
   geminiApiKey: { label: "Google Gemini", hint: "Gemini models." },
