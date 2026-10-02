@@ -56,5 +56,6 @@ async function relay(req: Request, ctx: { params: Promise<{ path: string[] }> })
 
 export const GET = relay
 export const POST = relay
+export const PUT = relay
 export const PATCH = relay
 export const DELETE = relay
