@@ -6,8 +6,9 @@
  * holds no engine logic — it renders what the tenant reports and asks it to act.
  */
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { attachDeckFile } from "@/lib/deck-attach-client"
 import {
-  Loader2, AlertTriangle, RotateCw, Rocket, Pause, Play, CheckCircle2, Sliders, ChevronDown, ChevronRight, Check,
+  Loader2, AlertTriangle, RotateCw, Rocket, Pause, Play, CheckCircle2, Sliders, ChevronDown, ChevronRight, Check, Paperclip,
 } from "lucide-react"
 
 interface Counts { total: number; contacted: number; opened: number; interested: number; notInterested: number }
@@ -23,7 +24,7 @@ interface Entry {
 }
 interface Detail {
   campaign: {
-    id: string; status: string; campaignStatus: string | null; sendApproved: boolean; hasDeck: boolean
+    id: string; publicRef: string; status: string; campaignStatus: string | null; sendApproved: boolean; hasDeck: boolean
     assessment: { score: number; verdict: string; summary?: string; strengths?: string[]; gaps?: string[] } | null
     declineReason: string | null; oneLiner: string | null; website: string | null; location: string | null; founderLinkedin: string | null
   }
@@ -263,7 +264,10 @@ function DetailPanel({ id, status, onChanged }: { id: string; status: string; on
         </div>
       )}
       {!a && c.declineReason && <div className="mb-4"><Notice tone="warn">{c.declineReason}</Notice></div>}
-      {!c.hasDeck && <div className="mb-3"><Notice tone="warn">No deck on file for this application.</Notice></div>}
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs">
+        {c.hasDeck ? <span className="text-muted-foreground">Deck attached to this application.</span> : <span className="text-amber-700">No deck on file — attach one, then re-assess.</span>}
+        <AttachDeck id={id} publicRef={c.publicRef} onDone={reload} />
+      </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Btn action="reassess" icon={<RotateCw className="h-3.5 w-3.5" />} text="Re-assess" />
@@ -322,4 +326,26 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
 function Notice({ tone, children }: { tone: "danger" | "warn"; children: React.ReactNode }) {
   const cls = tone === "danger" ? "border-rose-300 bg-rose-50 text-rose-800" : "border-amber-300 bg-amber-50 text-amber-800"
   return <div role="alert" className={`flex items-start gap-2 rounded-md border p-3 text-sm ${cls}`}><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />{children}</div>
+}
+
+function AttachDeck({ id, publicRef, onDone }: { id: string; publicRef: string; onDone: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  return (
+    <>
+      <label className="inline-flex cursor-pointer items-center gap-1 rounded border border-border px-2 py-0.5 text-[11px] hover:bg-muted">
+        {busy ? <Loader2 className="h-3 w-3 animate-spin" /> : <Paperclip className="h-3 w-3" />}
+        {busy ? "Uploading…" : "Attach / replace deck"}
+        <input type="file" accept=".pdf,.ppt,.pptx" className="sr-only" disabled={busy}
+          onChange={async (e) => {
+            const f = e.target.files?.[0]; if (!f) return
+            setBusy(true); setErr(null)
+            try { await attachDeckFile(`/api/anker/campaign/${id}/deck`, publicRef, f); onDone() }
+            catch (x: any) { setErr(x?.message ?? "Upload failed") }
+            finally { setBusy(false); e.target.value = "" }
+          }} />
+      </label>
+      {err && <span role="alert" className="text-[11px] text-rose-700">{err}</span>}
+    </>
+  )
 }
