@@ -7,7 +7,7 @@ import { AiUsagePanel } from "./ai-usage-panel"
 
 export const dynamic = "force-dynamic"
 
-const SECRET_FIELDS = ["anthropicApiKey", "openaiApiKey", "geminiApiKey", "mistralApiKey", "qwenApiKey"] as const
+const SECRET_FIELDS = ["anthropicApiKey", "openaiApiKey", "geminiApiKey", "mistralApiKey", "qwenFreeApiKey", "qwenPlanApiKey", "qwenApiKey"] as const
 export interface KeyStatus { name: string; set: boolean; last4: string | null; encrypted: boolean }
 
 async function loadConfig(): Promise<{ config: AiRouterConfig; keys: KeyStatus[]; error: string | null }> {
