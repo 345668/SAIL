@@ -42,7 +42,7 @@ export default async function OrganizationsPage() {
     <PageShell
       eyebrow="Overview"
       title="Organizations"
-      description="Every tenant workspace on the platform. Use “View as” to open the Venture OS app impersonating an org — read-only by default."
+      description="Every tenant workspace on the platform. “Inspect” opens a metadata-only view (plan, usage, errors, counts) with a stated reason; the workspace can see it was opened."
     >
       {error ? (
         <div className="rounded-lg border border-border bg-card p-5 text-sm text-muted-foreground">

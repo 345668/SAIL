@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Eye, Loader2, ExternalLink } from "lucide-react"
+import { Eye } from "lucide-react"
 
 export interface OrgRow {
   id: string
@@ -16,25 +16,8 @@ const fmtDate = (s: string | null) =>
 
 export function OrgTable({ rows }: { rows: OrgRow[] }) {
   const [q, setQ] = useState("")
-  const [busy, setBusy] = useState<string | null>(null)
-  const [handoff, setHandoff] = useState<{ org: string; url: string; mode: string } | null>(null)
 
   const filtered = rows.filter((r) => r.name.toLowerCase().includes(q.toLowerCase()) || r.id.includes(q))
-
-  async function viewAs(org: OrgRow, mode: "readonly" | "full") {
-    setBusy(org.id)
-    try {
-      const res = await fetch("/api/impersonate", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ orgId: org.id, mode }),
-      })
-      const d = await res.json()
-      if (d.url) setHandoff({ org: org.name, url: d.url, mode })
-    } finally {
-      setBusy(null)
-    }
-  }
 
   return (
     <div>
@@ -53,7 +36,7 @@ export function OrgTable({ rows }: { rows: OrgRow[] }) {
               <th className="text-left px-4 py-2.5">Personas</th>
               <th className="text-right px-4 py-2.5">Members</th>
               <th className="text-left px-4 py-2.5">Created</th>
-              <th className="text-right px-4 py-2.5">View as</th>
+              <th className="text-right px-4 py-2.5">Inspect</th>
             </tr>
           </thead>
           <tbody>
@@ -75,57 +58,13 @@ export function OrgTable({ rows }: { rows: OrgRow[] }) {
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{r.members}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{fmtDate(r.createdAt)}</td>
-                <td className="px-4 py-2.5">
-                  <div className="flex justify-end gap-1.5">
-                    <button
-                      onClick={() => viewAs(r, "readonly")}
-                      disabled={busy === r.id}
-                      className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border text-xs hover:border-[var(--accent)] disabled:opacity-50"
-                    >
-                      {busy === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Eye className="w-3.5 h-3.5" />}
-                      Read-only
-                    </button>
-                    <button
-                      onClick={() => viewAs(r, "full")}
-                      disabled={busy === r.id}
-                      className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md text-xs text-[var(--primary-foreground)] disabled:opacity-50"
-                      style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
-                    >
-                      Full
-                    </button>
-                  </div>
-                </td>
+                <td className="px-4 py-2.5 text-right"><a href={`/organizations/${encodeURIComponent(r.id)}`} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border text-xs hover:border-[var(--accent)]"><Eye className="w-3.5 h-3.5" /> Inspect</a></td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
 
-      {handoff && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onClick={() => setHandoff(null)}>
-          <div className="w-full max-w-lg card-elev rounded-xl border border-border p-6" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-display text-lg">Open Venture OS as “{handoff.org}”</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              A single-use, 5-minute impersonation grant was minted ({handoff.mode}). Opening the
-              link starts an impersonated session in the tenant app with a persistent banner.
-            </p>
-            <a
-              href={handoff.url}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 inline-flex items-center gap-2 h-10 px-4 rounded-md text-sm text-[var(--primary-foreground)]"
-              style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}
-            >
-              <ExternalLink className="w-4 h-4" /> Open impersonated session
-            </a>
-            <p className="mt-3 font-mono text-[10px] text-muted-foreground break-all">{handoff.url}</p>
-            <p className="mt-2 text-xs text-muted-foreground">
-              Tenant-side acceptance (<code>/api/impersonate/accept</code>) lands in the next phase; the
-              grant is already recorded and audited.
-            </p>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
