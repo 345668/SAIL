@@ -13,6 +13,7 @@ const NAV: { heading: string; items: { label: string; href: string; icon: any; s
     items: [
       { label: "Dashboard", href: "/", icon: LayoutDashboard },
       { label: "Organizations", href: "/organizations", icon: Building2 },
+      { label: "Activation", href: "/activation", icon: Rocket },
       { label: "Users & roles", href: "/users", icon: Users },
     ],
   },
