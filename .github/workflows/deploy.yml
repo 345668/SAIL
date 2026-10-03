@@ -1,30 +1,49 @@
-name: Deploy to Vercel (production)
+name: Check and deploy to Vercel (production)
 
-# Deploys the company portal to Vercel production on every push to main.
-# Runtime env vars (NEON_DATABASE_URL, SECRET_KEY, TENANT_APP_URL) live in the
-# Vercel project's Production environment and are pulled by `vercel pull` — they
-# are NOT stored in this repo. The workflow only needs the three Vercel secrets.
+# Every push and pull request is checked (typecheck + tests); only a push to main that PASSES is deployed.
+# Before this, every push to main went straight to production with no check at all.
+#
+# Runtime env vars (NEON_DATABASE_URL, SECRET_KEY, TENANT_APP_URL) live in the Vercel project's Production
+# environment and are pulled by `vercel pull` — they are NOT stored in this repo.
 #
 # Required GitHub repo secrets (Settings → Secrets and variables → Actions):
-#   VERCEL_SAIL_TOKEN        a Vercel access token (vercel.com/account/tokens)
+#   VERCEL_SAIL_TOKEN   a Vercel access token (vercel.com/account/tokens)
 #   VERCEL_ORG_ID       from `vercel link` → .vercel/project.json ("orgId")
 #   VERCEL_PROJECT_ID   from `vercel link` → .vercel/project.json ("projectId")
 
 on:
   push:
     branches: [main]
+  pull_request: {}
   workflow_dispatch: {}
 
-# One production deploy at a time; newer pushes cancel an in-flight run.
-concurrency:
-  group: vercel-production
-  cancel-in-progress: true
-
 jobs:
-  deploy:
+  check:
     runs-on: ubuntu-latest
-    # Skip forks / secretless runs so the job doesn't fail red without a token.
-    if: ${{ github.repository == '345668/SAIL' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Test
+        run: npm test
+
+  deploy:
+    needs: check
+    # Only a passing push to main, and only on the real repository (forks have no token).
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && github.repository == '345668/SAIL' }}
+    runs-on: ubuntu-latest
+    # One production deploy at a time; a newer push cancels an in-flight run.
+    concurrency:
+      group: vercel-production
+      cancel-in-progress: true
     env:
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

@@ -9,7 +9,10 @@
     "start": "next start -p 3100",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "migrate": "node scripts/migrate.mjs db/001-init.sql",
-    "seed:staff": "node scripts/seed-company-staff.mjs"
+    "seed:staff": "node scripts/seed-company-staff.mjs",
+    "test": "vitest run",
+    "check": "tsc --noEmit -p tsconfig.json && vitest run",
+    "reset:mfa": "node scripts/reset-mfa.mjs"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.0.2",
@@ -20,11 +23,13 @@
     "react-dom": "19.2.0"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
     "@tailwindcss/postcss": "^4.1.9",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "tailwindcss": "^4.1.9",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

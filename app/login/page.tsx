@@ -1,11 +1,14 @@
 import { redirect } from "next/navigation"
-import { getSession } from "@/lib/auth"
+import { getPartialSession, getSession } from "@/lib/auth"
 import { LoginForm } from "./login-form"
 
 export const dynamic = "force-dynamic"
 
 export default async function LoginPage() {
   if (await getSession()) redirect("/")
+  // A password already accepted but the second factor not yet done: resume at that step instead of starting over.
+  const partial = await getPartialSession()
+  const resume = partial && !partial.mfaVerified ? (partial.mfaEnabled ? "verify" : "enroll") : null
   return (
     <div className="min-h-screen grid place-items-center px-6">
       <div className="w-full max-w-sm">
@@ -19,7 +22,7 @@ export default async function LoginPage() {
             Platform administration. Staff access only —<br />separate from tenant accounts.
           </p>
         </div>
-        <LoginForm />
+        <LoginForm resume={resume} />
       </div>
     </div>
   )
