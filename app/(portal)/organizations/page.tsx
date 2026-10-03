@@ -11,7 +11,9 @@ async function loadOrgs(): Promise<{ rows: OrgRow[]; error: string | null }> {
              o.name,
              o.created_at,
              COALESCE(m.members, 0) AS members,
-             m.personas
+             m.personas,
+             a.last_ai,
+             COALESCE(a.calls30, 0) AS calls30
       FROM organizations o
       LEFT JOIN (
         SELECT org_id,
@@ -19,6 +21,11 @@ async function loadOrgs(): Promise<{ rows: OrgRow[]; error: string | null }> {
                array_remove(array_agg(DISTINCT persona), NULL) AS personas
         FROM memberships GROUP BY org_id
       ) m ON m.org_id = o.id
+      LEFT JOIN (
+        SELECT workspace_id, max(created_at) AS last_ai,
+               count(*) FILTER (WHERE created_at > now() - interval '30 days')::int AS calls30
+        FROM ai_calls WHERE workspace_id IS NOT NULL GROUP BY workspace_id
+      ) a ON a.workspace_id = o.id
       ORDER BY o.created_at DESC
       LIMIT 500`
     return {
@@ -27,6 +34,8 @@ async function loadOrgs(): Promise<{ rows: OrgRow[]; error: string | null }> {
         name: r.name ?? "(unnamed)",
         createdAt: r.created_at ? String(r.created_at) : null,
         members: Number(r.members ?? 0),
+        lastAi: r.last_ai ? String(r.last_ai) : null,
+        calls30: Number(r.calls30 ?? 0),
         personas: Array.isArray(r.personas) ? r.personas.filter(Boolean) : [],
       })),
       error: null,
