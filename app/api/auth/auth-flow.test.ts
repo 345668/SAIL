@@ -142,7 +142,7 @@ describe("lockout", () => {
     const r = await json(await login(req({ email: "nobody@an-ker.de", password: "x" })))
     expect(r.status).toBe(401)
     expect(r.body.error).toBe("Invalid credentials")
-    expect(Number((await db.query("SELECT count(*)::int n FROM staff_login_attempts WHERE NOT ok")).rows[0].n)).toBe(1)
+    expect(Number(((await db.query("SELECT count(*)::int n FROM staff_login_attempts WHERE NOT ok")).rows[0] as any).n)).toBe(1)
   })
 })
 
