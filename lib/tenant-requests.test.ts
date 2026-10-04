@@ -22,9 +22,13 @@ describe("who may do what", () => {
   it("calls the tenant app with the operator named, and audits each action with no content", async () => {
     h.forward.mockResolvedValue(ok({ id: "r1", tables: 3, bytes: 10, dryRun: { toDelete: 5 }, blockers: [{ code: "not_offboarding" }], executeAfter: "2026-10-12" }))
     await requestDryRun(root, "onboarding:vc:abc"); await scheduleErasure(root, "o1", "r1", "Acme")
-    expect(h.forward.mock.calls[0][0]).toMatchObject({ path: "admin/tenants/onboarding%3Avc%3Aabc/requests", method: "POST", staffEmail: "root@sail.test" })
+    expect(h.forward.mock.calls[0][0]).toMatchObject({ path: "admin/tenants/onboarding:vc:abc/requests", method: "POST", staffEmail: "root@sail.test" })
     expect(JSON.parse(h.forward.mock.calls[1][0].body)).toEqual({ action: "schedule", requestId: "r1", confirmName: "Acme" })
     expect(h.audit.mock.calls.map((c) => c[0])).toEqual(["tenant.erasure.dry_run", "tenant.erasure.schedule"]); expect(JSON.stringify(h.audit.mock.calls)).not.toContain("Acme")
+  })
+  it("a workspace id with anything else in it never reaches a URL", async () => {
+    for (const bad of ["a/b", "../x", "a b", "a%2Fb", ""]) await expect(listTenantRequests(root, bad)).rejects.toMatchObject({ status: 400 })
+    expect(h.forward).not.toHaveBeenCalled()
   })
   it("the tenant app's refusal reaches the operator as a plain message", async () => {
     h.forward.mockResolvedValue(new Response(JSON.stringify({ error: "The workspace must be in the offboarding state first." }), { status: 409 }))
@@ -34,7 +38,6 @@ describe("who may do what", () => {
 
 describe("the relay allowlist", () => {
   it("allows only the requests path for a workspace id, nothing wider", () => {
-    expect(isProxyAllowed("admin/tenants/onboarding%3Avc%3Aabc/requests")).toBe(false) // the proxy matches the decoded path segment
     expect(isProxyAllowed("admin/tenants/onboarding:vc:abc/requests")).toBe(true); expect(isProxyAllowed("admin/tenants/a_b-c/requests")).toBe(true)
     for (const bad of ["admin/tenants/x/requests/extra", "admin/tenants//requests", "admin/tenants/../requests", "admin/tenants/x/export", "admin/tenants/x y/requests"]) expect(isProxyAllowed(bad), bad).toBe(false)
   })

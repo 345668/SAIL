@@ -10,7 +10,11 @@ import { ControlError, roleAtLeast, type Role } from "./tenant-control"
 type Staff = { id: string; email: string; role: Role }
 export type RequestRow = { id: string; kind: "export" | "erasure"; status: string; requested_by: string | null; approved_by: string | null; deadline_at: string | null; execute_after: string | null; created_at: string; detail: any }
 
-const path = (org: string) => `admin/tenants/${encodeURIComponent(org)}/requests`
+/** Workspace ids are letters, numbers, colon, underscore and hyphen (for example onboarding:vc:<uuid>). Anything else is refused before it reaches a URL. */
+const path = (org: string) => {
+  if (!/^[A-Za-z0-9:_-]{1,120}$/.test(org)) throw new ControlError("That is not a workspace id.", 400)
+  return `admin/tenants/${org}/requests`
+}
 
 async function call(staff: Staff, org: string, method: "GET" | "POST", body?: unknown): Promise<any> {
   const res = await forwardToAnker({ path: path(org), method, body: body ? JSON.stringify(body) : undefined, contentType: body ? "application/json" : null, staffEmail: staff.email })
