@@ -11,7 +11,7 @@ import { audit } from "./audit"
 export const FEATURES = [
   { key: "assistant", label: "AI assistant" }, { key: "outreach", label: "Outreach and send center" }, { key: "linkedin", label: "LinkedIn campaigns" },
   { key: "matchmaking", label: "Matchmaking" }, { key: "intake", label: "Deal intake form" }, { key: "tools", label: "Tools and conversion" },
-  { key: "fund_ops", label: "Fund operations" }, { key: "spvs", label: "SPVs" },
+  { key: "fund_ops", label: "Fund administration" }, { key: "spvs", label: "SPVs" }, { key: "deals", label: "Deal pipeline" },
 ] as const
 export const LIMITS = [
   { key: "ai_spend_usd_month", label: "AI spend per month (USD)" }, { key: "seats", label: "Seats" }, { key: "outreach_sends_day", label: "Outreach sends per day" },
@@ -38,7 +38,7 @@ const needReason = (r: string) => { const t = r.trim(); if (t.length < MIN_REASO
 
 export interface Control {
   org: { id: string; name: string }
-  plans: { plan: string; label: string; features: Record<string, boolean>; limits: Record<string, number | null> }[]
+  plans: { plan: string; label: string; persona: string | null; status: string; priceMonth: number | null; summary: string | null; features: Record<string, boolean>; limits: Record<string, number | null> }[]
   plan: string | null
   features: Record<string, boolean>
   limits: Record<string, number | null>
@@ -56,11 +56,12 @@ export async function loadControl(orgId: string): Promise<Control | null> {
   if (!org) return null
   const ent = ((await sql`SELECT * FROM tenant_entitlements WHERE org_id = ${orgId}`) as any[])[0]
   const life = ((await sql`SELECT * FROM tenant_lifecycle WHERE org_id = ${orgId}`) as any[])[0]
-  const plans = (await sql`SELECT plan, label, features, limits FROM plan_catalog ORDER BY sort`) as any[]
+  const plans = (await sql`SELECT plan, label, persona, status, price_eur_month, summary, features, limits FROM plan_catalog ORDER BY sort`) as any[]
   const events = (await sql`SELECT at, from_state, to_state, reason, actor FROM tenant_lifecycle_events WHERE org_id = ${orgId} ORDER BY id DESC LIMIT 20`) as any[]
   return {
     org: { id: org.id, name: org.name ?? "(unnamed)" },
-    plans: plans.map((p) => ({ plan: p.plan, label: p.label, features: obj(p.features), limits: obj(p.limits) })),
+    // Retired plans are not offered, but one a workspace already has stays visible so it can be seen and moved off.
+    plans: plans.filter((p) => p.status === "active" || p.plan === ent?.plan).map((p) => ({ plan: p.plan, label: p.label, persona: p.persona ?? null, status: p.status, priceMonth: p.price_eur_month == null ? null : Number(p.price_eur_month), summary: p.summary ?? null, features: obj(p.features), limits: obj(p.limits) })),
     plan: ent?.plan ?? null, features: obj(ent?.features), limits: obj(ent?.limits), notes: ent?.notes ?? null, version: ent ? Number(ent.version) : 0,
     state: (life?.state ?? "active") as State, stateReason: life?.reason ?? null, trialEndsAt: life?.trial_ends_at ? iso(life.trial_ends_at) : null, stateChangedAt: life?.changed_at ? iso(life.changed_at) : null,
     events: events.map((e) => ({ at: iso(e.at), from: e.from_state ?? null, to: e.to_state, reason: e.reason ?? null, actor: e.actor ?? null })),

@@ -10,7 +10,7 @@ let db: PGlite
 const admin = { id: "a1", email: "admin@sail.test", role: "admin" as const }
 const staff = { id: "s1", email: "staff@sail.test", role: "staff" as const }
 const root = { id: "r1", email: "root@sail.test", role: "superadmin" as const }
-const input = (over: Partial<EntitlementInput> = {}): EntitlementInput => ({ plan: "starter", features: { linkedin: "on", outreach: "off" }, limits: { seats: "unlimited", outreach_sends_day: "75", storage_mb: "" }, expectedVersion: 0, reason: "agreed upgrade, ticket 123", ...over })
+const input = (over: Partial<EntitlementInput> = {}): EntitlementInput => ({ plan: "fund_studio", features: { linkedin: "on", outreach: "off" }, limits: { seats: "unlimited", outreach_sends_day: "75", storage_mb: "" }, expectedVersion: 0, reason: "agreed upgrade, ticket 123", ...over })
 const fail = async (p: Promise<unknown>) => p.then(() => null, (e) => e as ControlError)
 
 beforeAll(async () => {
@@ -21,6 +21,7 @@ beforeAll(async () => {
     CREATE TABLE workspace_access_events (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, org_id text, actor_user_id text, action text, target_user_id text, details jsonb, created_at timestamptz DEFAULT now());
     INSERT INTO organizations VALUES ('o1', 'Acme');`)
   await db.exec(readFileSync("db/003-tenant-control.sql", "utf8"))
+  await db.exec(readFileSync("db/004-plan-catalogue.sql", "utf8"))
 }, 30000)
 beforeEach(async () => { await db.exec("DELETE FROM tenant_entitlements; DELETE FROM tenant_lifecycle; DELETE FROM tenant_lifecycle_events; DELETE FROM company_audit_log; DELETE FROM workspace_access_events") })
 
@@ -28,7 +29,7 @@ describe("entitlements", () => {
   it("saves a plan with overrides, versions up, audits it and tells the workspace", async () => {
     expect(await saveEntitlements(admin, "o1", input())).toBe(1)
     const c = (await loadControl("o1"))!
-    expect(c).toMatchObject({ plan: "starter", version: 1, features: { linkedin: true, outreach: false }, limits: { seats: null, outreach_sends_day: 75 } }); expect(c.limits).not.toHaveProperty("storage_mb")
+    expect(c).toMatchObject({ plan: "fund_studio", version: 1, features: { linkedin: true, outreach: false }, limits: { seats: null, outreach_sends_day: 75 } }); expect(c.limits).not.toHaveProperty("storage_mb")
     expect((await db.query("SELECT action FROM company_audit_log")).rows).toEqual([{ action: "tenant.entitlements.set" }])
     const ev = (await db.query("SELECT action, details FROM workspace_access_events")).rows[0] as any; expect(ev.action).toBe("staff_plan_change"); expect(ev.details.reason).toMatch(/ticket 123/)
   })
@@ -44,6 +45,16 @@ describe("entitlements", () => {
     await saveEntitlements(admin, "o1", input())
     expect((await fail(saveEntitlements(admin, "o1", input({ expectedVersion: 0 }))))?.status).toBe(409)
     expect(await saveEntitlements(admin, "o1", input({ expectedVersion: 1, plan: "pro" }))).toBe(2)
+  })
+})
+
+describe("the catalogue SAIL offers", () => {
+  it("offers active plans with prices, and hides a retired plan unless the workspace is on it", async () => {
+    const plans = (await loadControl("o1"))!.plans
+    expect(plans.map((p) => p.plan)).toEqual(expect.arrayContaining(["founder_explore", "fund_studio", "fund_pro", "design_partner"])); expect(plans.some((p) => p.plan === "starter")).toBe(false)
+    expect(plans.find((p) => p.plan === "fund_pro")).toMatchObject({ priceMonth: 990, persona: "vc" }); expect(plans.find((p) => p.plan === "fund_institutional")!.priceMonth).toBeNull()
+    await db.query("INSERT INTO tenant_entitlements (org_id, plan) VALUES ('o1', 'starter')")
+    expect((await loadControl("o1"))!.plans.find((p) => p.plan === "starter")).toMatchObject({ status: "retired" })
   })
 })
 

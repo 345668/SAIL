@@ -50,7 +50,8 @@ export default async function ControlPage({ params, searchParams }: { params: Pr
         <input type="hidden" name="orgId" value={id} /><input type="hidden" name="version" value={c.version} />
         <h2 className="text-base font-semibold">Plan and overrides</h2>
         <label className="mt-3 block max-w-xs text-sm">Plan<select name="plan" defaultValue={c.plan ?? ""} disabled={!admin} className={input}>
-          <option value="">No plan (open: everything allowed)</option>{c.plans.map((p) => <option key={p.plan} value={p.plan}>{p.label}</option>)}</select></label>
+          <option value="">No plan (open: everything allowed)</option>{c.plans.map((p) => <option key={p.plan} value={p.plan}>{p.label}{p.persona ? ` (${p.persona === "vc" ? "fund" : p.persona})` : ""}{p.priceMonth ? ` · €${p.priceMonth}/mo` : p.priceMonth === 0 ? " · free" : " · contract"}{p.status === "retired" ? " · retired" : ""}</option>)}</select></label>
+        {planOf?.summary && <p className="mt-2 text-sm text-muted-foreground">{planOf.summary}</p>}
         <div className="mt-4 grid gap-6 md:grid-cols-2">
           <div><div className="text-xs font-medium text-muted-foreground">Modules</div>
             {FEATURES.map((f) => (
