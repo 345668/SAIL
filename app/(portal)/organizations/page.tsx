@@ -13,6 +13,7 @@ async function loadOrgs(): Promise<{ rows: OrgRow[]; error: string | null }> {
              COALESCE(m.members, 0) AS members,
              m.personas,
              a.last_ai,
+             e.plan, COALESCE(l.state, 'active') AS state,
              COALESCE(a.calls30, 0) AS calls30
       FROM organizations o
       LEFT JOIN (
@@ -26,6 +27,8 @@ async function loadOrgs(): Promise<{ rows: OrgRow[]; error: string | null }> {
                count(*) FILTER (WHERE created_at > now() - interval '30 days')::int AS calls30
         FROM ai_calls WHERE workspace_id IS NOT NULL GROUP BY workspace_id
       ) a ON a.workspace_id = o.id
+      LEFT JOIN tenant_entitlements e ON e.org_id = o.id
+      LEFT JOIN tenant_lifecycle l ON l.org_id = o.id
       ORDER BY o.created_at DESC
       LIMIT 500`
     return {
@@ -36,6 +39,8 @@ async function loadOrgs(): Promise<{ rows: OrgRow[]; error: string | null }> {
         members: Number(r.members ?? 0),
         lastAi: r.last_ai ? String(r.last_ai) : null,
         calls30: Number(r.calls30 ?? 0),
+        plan: r.plan ?? null,
+        state: String(r.state ?? "active"),
         personas: Array.isArray(r.personas) ? r.personas.filter(Boolean) : [],
       })),
       error: null,

@@ -11,6 +11,8 @@ export interface OrgRow {
   personas: string[]
   lastAi: string | null
   calls30: number
+  plan: string | null
+  state: string
 }
 
 const fmtDate = (s: string | null) =>
@@ -37,6 +39,7 @@ export function OrgTable({ rows }: { rows: OrgRow[] }) {
               <th className="text-left px-4 py-2.5">Organization</th>
               <th className="text-left px-4 py-2.5">Personas</th>
               <th className="text-right px-4 py-2.5">Members</th>
+              <th className="text-left px-4 py-2.5">Plan · state</th>
               <th className="text-left px-4 py-2.5">Created</th>
               <th className="text-left px-4 py-2.5">Last AI activity</th>
               <th className="text-right px-4 py-2.5">AI calls, 30d</th>
@@ -45,7 +48,7 @@ export function OrgTable({ rows }: { rows: OrgRow[] }) {
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">No organizations.</td></tr>
+              <tr><td colSpan={8} className="px-4 py-10 text-center text-muted-foreground">No organizations.</td></tr>
             ) : filtered.map((r) => (
               <tr key={r.id} className="border-b border-border/60 last:border-0">
                 <td className="px-4 py-2.5">
@@ -61,10 +64,11 @@ export function OrgTable({ rows }: { rows: OrgRow[] }) {
                   </div>
                 </td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{r.members}</td>
+                <td className="px-4 py-2.5 text-xs"><span className="text-muted-foreground">{r.plan ?? "open"}</span> · <span className={r.state === "active" ? "text-muted-foreground" : "font-medium text-amber-700"}>{r.state}</span></td>
                 <td className="px-4 py-2.5 text-muted-foreground">{fmtDate(r.createdAt)}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{fmtDate(r.lastAi)}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{r.calls30}</td>
-                <td className="px-4 py-2.5 text-right"><a href={`/organizations/${encodeURIComponent(r.id)}`} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border text-xs hover:border-[var(--accent)]"><Eye className="w-3.5 h-3.5" /> Inspect</a></td>
+                <td className="px-4 py-2.5 text-right"><a href={`/organizations/${encodeURIComponent(r.id)}/control`} className="mr-2 text-xs underline">Plan and state</a><a href={`/organizations/${encodeURIComponent(r.id)}`} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border text-xs hover:border-[var(--accent)]"><Eye className="w-3.5 h-3.5" /> Inspect</a></td>
               </tr>
             ))}
           </tbody>
