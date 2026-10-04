@@ -90,7 +90,7 @@ export const ACT_AS_REQUIRED = new Set<string>([
 export type ProxyPath = (typeof PROXY_ALLOWLIST)[number]
 
 /** Per-record paths. Anchored and id-shaped, so this cannot widen into a wildcard. */
-const PROXY_PATTERNS = [/^campaign\/[0-9a-f-]{8,40}$/i, /^campaign\/[0-9a-f-]{8,40}\/deck$/i]
+const PROXY_PATTERNS = [/^campaign\/[0-9a-f-]{8,40}$/i, /^campaign\/[0-9a-f-]{8,40}\/deck$/i, /^admin\/tenants\/[A-Za-z0-9:_-]{1,120}\/requests$/]
 
 export function isProxyAllowed(path: string): boolean {
   return (PROXY_ALLOWLIST as readonly string[]).includes(path) || PROXY_PATTERNS.some((p) => p.test(path))

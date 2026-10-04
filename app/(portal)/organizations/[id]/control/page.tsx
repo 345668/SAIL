@@ -24,7 +24,7 @@ export default async function ControlPage({ params, searchParams }: { params: Pr
   const effective = (k: string) => (k in c.features ? c.features[k] : planOf ? planOf.features[k] === true : true)
   return (
     <PageShell eyebrow="Organizations" title={`${c.org.name}: plan and state`} description="What this workspace may use, and whether it is running. Open by default: with no plan set, everything is allowed. Changes need a reason, are audited, and appear in the workspace's own access log.">
-      <p className="mb-4 text-sm"><Link className="underline" href="/organizations">← Organizations</Link> · <Link className="underline" href={`/organizations/${encodeURIComponent(id)}`}>Inspect usage</Link></p>
+      <p className="mb-4 text-sm"><Link className="underline" href="/organizations">← Organizations</Link> · <Link className="underline" href={`/organizations/${encodeURIComponent(id)}`}>Inspect usage</Link> · <Link className="underline" href={`/organizations/${encodeURIComponent(id)}/requests`}>Export and erasure</Link></p>
       {err && <p className="mb-4 rounded-md border border-[var(--danger)] p-3 text-sm text-[var(--danger)]">{err}</p>}
       {ok && <p className="mb-4 rounded-md border border-border p-3 text-sm">{ok}</p>}
       {!admin && <p className="mb-4 text-sm text-muted-foreground">You can read this. Changing it needs an admin.</p>}
