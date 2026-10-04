@@ -28,6 +28,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: One package manager
+        run: |
+          if ls yarn.lock pnpm-lock.yaml bun.lockb bun.lock 2>/dev/null | grep -q .; then echo "Only package-lock.json (npm) is allowed here."; exit 1; fi
       - name: Install
         run: npm ci
       - name: Typecheck

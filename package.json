@@ -2,7 +2,7 @@
   "name": "anker-company-portal",
   "version": "0.1.0",
   "private": true,
-  "description": "Anker Company Administration Portal — platform-owner app, separate auth, firewalled from the tenant Venture OS.",
+  "description": "Anker Company Administration Portal \u2014 platform-owner app, separate auth, firewalled from the tenant Venture OS.",
   "scripts": {
     "dev": "next dev -p 3100",
     "build": "next build",
@@ -31,5 +31,6 @@
     "tailwindcss": "^4.1.9",
     "typescript": "^5",
     "vitest": "^3.2.7"
-  }
+  },
+  "packageManager": "npm@10.9.8"
 }

@@ -48,3 +48,9 @@ from your machine with `vercel --prod`.
 
 The `if:` guard in the workflow scopes runs to `345668/SAIL`, so forks don't
 fail red without secrets. If you rename or move the repo, update that line.
+
+## Package manager and previews
+
+npm only: `package-lock.json` is the one lockfile, `packageManager` is pinned in `package.json`, and CI fails if a yarn, pnpm or bun lockfile appears.
+
+There is deliberately **no preview deployment** of pull requests. SAIL is the staff console and shares the production database; a preview would either hold production credentials on a public URL or fail without them. A preview environment needs its own database branch and its own Preview-scoped variables first (Neon branch, `SECRET_KEY`, `TENANT_APP_URL`), and a staff-only access rule. Until then the typecheck-and-test gate on every pull request is the safety net.
