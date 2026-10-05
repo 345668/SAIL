@@ -33,7 +33,7 @@ export default async function SendingPage({ searchParams }: { searchParams: Prom
         <div>
           <div className="text-sm font-medium">Enforcement <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${o.enforcement.on ? "bg-[var(--primary)] text-white" : "border border-border text-muted-foreground"}`}>{o.enforcement.on ? `On for ${o.enforcement.rolloutPct}% of senders` : "Off"}</span></div>
           <div className="text-xs text-muted-foreground">When on, an outreach email with no send authorization is refused. It can be turned on only after {o.enforcement.quietDays} days with no send that skipped one.
-            {o.enforcement.unauthorized.length === 0 ? ` None in the last ${o.enforcement.quietDays} days.` : ` Logged in that time: ${o.enforcement.unauthorized.map((u) => `${u.path} ${u.n} (last ${fmt(u.lastAt)})`).join(", ")}.`}</div>
+            {o.enforcement.shadowSince ? ` The log has been recording for ${o.enforcement.observedDays} of ${o.enforcement.quietDays} days (since ${fmt(o.enforcement.shadowSince)}).` : " The log has not started recording."}{o.enforcement.unauthorized.length === 0 ? ` None logged in the last ${o.enforcement.quietDays} days.` : ` Logged in that time: ${o.enforcement.unauthorized.map((u) => `${u.path} ${u.n} (last ${fmt(u.lastAt)})`).join(", ")}.`}</div>
         </div>
         <label className="text-xs">Share %<input name="rollout" type="number" min={0} max={100} defaultValue={o.enforcement.rolloutPct || 100} disabled={roleAtLeast(staff.role, "superadmin") === false} className={input} /></label>
         <label className="text-xs">Reason<input name="reason" required minLength={MIN_REASON} disabled={roleAtLeast(staff.role, "superadmin") === false} className={input} placeholder="Why this change" /></label>

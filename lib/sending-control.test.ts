@@ -45,6 +45,13 @@ describe("sending control", () => {
   })
   it("enforcement can be turned on only after a quiet fortnight, only by a superadmin, and off any time", async () => {
     await expect(setEnforcement(admin, true, 100, "Switching it on now please")).rejects.toThrow(/Only a superadmin/)
+    // A quiet log means nothing until it has been recording for the whole fortnight: not started, then started 3 days ago, both refused.
+    await expect(setEnforcement(superadmin, true, 25, "Fourteen quiet days, starting with a quarter")).rejects.toThrow(/recording for 0 days/)
+    await db.exec("INSERT INTO platform_flags (key, enabled, updated_at) VALUES ('outreach_shadow_log_started', true, now() - interval '3 days')")
+    expect((await overview()).enforcement).toMatchObject({ observedDays: 3 })
+    await expect(setEnforcement(superadmin, true, 25, "Fourteen quiet days, starting with a quarter")).rejects.toThrow(/recording for 3 days.*14 quiet days/)
+    await db.exec("UPDATE platform_flags SET updated_at = now() - interval '15 days' WHERE key = 'outreach_shadow_log_started'")
+    await db.exec("UPDATE platform_flags SET updated_at = now() - interval '3 days' WHERE key = 'outreach_shadow_log_started'"); await db.exec("UPDATE platform_flags SET updated_at = now() - interval '15 days' WHERE key = 'outreach_shadow_log_started'")
     await db.exec("INSERT INTO audit_events (action, target_label, created_at) VALUES ('send.unauthorized_path','investor-update', now() - interval '3 days'), ('send.unauthorized_path','investor-update', now() - interval '2 days'), ('send.unauthorized_path','lp-send-one', now() - interval '20 days')")
     const o = await overview(); expect(o.enforcement.unauthorized).toEqual([expect.objectContaining({ path: "investor-update", n: 2 })]) // the 20-day-old one is outside the window
     await expect(setEnforcement(superadmin, true, 100, "Switching it on now please")).rejects.toThrow(/Not yet.*investor-update 2.*14 quiet days/)
