@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth"
 import { PageShell } from "@/components/page-shell"
 import { roleAtLeast, MIN_REASON } from "@/lib/tenant-control"
 import { overview } from "@/lib/sending-control"
-import { toggleSending } from "./actions"
+import { toggleSending, changeEnforcement } from "./actions"
 
 export const dynamic = "force-dynamic"
 const input = "mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm"
@@ -26,6 +26,18 @@ export default async function SendingPage({ searchParams }: { searchParams: Prom
         </div>
         <label className="text-xs">Reason<input name="reason" required minLength={MIN_REASON} disabled={!admin} className={input} placeholder="Why this change" /></label>
         {admin && <button className="h-9 rounded-md px-4 text-sm" style={{ background: o.paused.on ? "var(--primary)" : "var(--danger)", color: "#fff" }}>{o.paused.on ? "Resume" : "Pause"}</button>}
+      </form>
+
+      <form action={changeEnforcement} className="mt-4 grid items-end gap-3 rounded-xl border border-border card-elev p-4 md:grid-cols-[1.2fr_90px_1.4fr_auto]">
+        <input type="hidden" name="on" value={o.enforcement.on ? "0" : "1"} />
+        <div>
+          <div className="text-sm font-medium">Enforcement <span className={`ml-2 rounded-full px-2 py-0.5 text-xs ${o.enforcement.on ? "bg-[var(--primary)] text-white" : "border border-border text-muted-foreground"}`}>{o.enforcement.on ? `On for ${o.enforcement.rolloutPct}% of senders` : "Off"}</span></div>
+          <div className="text-xs text-muted-foreground">When on, an outreach email with no send authorization is refused. It can be turned on only after {o.enforcement.quietDays} days with no send that skipped one.
+            {o.enforcement.unauthorized.length === 0 ? ` None in the last ${o.enforcement.quietDays} days.` : ` Logged in that time: ${o.enforcement.unauthorized.map((u) => `${u.path} ${u.n} (last ${fmt(u.lastAt)})`).join(", ")}.`}</div>
+        </div>
+        <label className="text-xs">Share %<input name="rollout" type="number" min={0} max={100} defaultValue={o.enforcement.rolloutPct || 100} disabled={roleAtLeast(staff.role, "superadmin") === false} className={input} /></label>
+        <label className="text-xs">Reason<input name="reason" required minLength={MIN_REASON} disabled={roleAtLeast(staff.role, "superadmin") === false} className={input} placeholder="Why this change" /></label>
+        {roleAtLeast(staff.role, "superadmin") && <button className="h-9 rounded-md px-4 text-sm" style={{ background: o.enforcement.on ? "var(--danger)" : "var(--primary)", color: "#fff" }}>{o.enforcement.on ? "Turn off" : "Turn on"}</button>}
       </form>
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
