@@ -9,6 +9,7 @@ export const AGENTS = [
   { id: "pipeline_keeper", title: "Pipeline keeper" },
   { id: "weekly_brief", title: "Weekly brief" },
   { id: "reply_keeper", title: "Reply keeper" },
+  { id: "outreach_drafter", title: "Outreach drafter" },
 ] as const
 export const ALL_KEY = "agents_disabled"
 export const flagKeyFor = (agentId: string | null) => (agentId === null ? ALL_KEY : `agents_disabled_${agentId}`)
