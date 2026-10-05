@@ -27,6 +27,7 @@ const NAV: { heading: string; items: { label: string; href: string; icon: any; s
       { label: "AI config", href: "/ai-config", icon: Bot },
       { label: "System health", href: "/system", icon: HeartPulse },
       { label: "Flags and maintenance", href: "/flags", icon: ShieldCheck },
+      { label: "Agents", href: "/agents", icon: Bot },
     ],
   },
   {
