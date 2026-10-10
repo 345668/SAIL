@@ -22,6 +22,15 @@ export default async function ActivationPage() {
         <div className={card}><div className="text-xs text-muted-foreground">Monthly active users</div><div className="mt-1 text-2xl">{a.mau}</div></div>
         <div className={card}><div className="text-xs text-muted-foreground">Median time to first match</div><div className="mt-1 text-2xl">{hrs(a.medianHoursToFirstValue)}</div></div>
       </div>
+      {a.layer && (
+        <div className={`${card} mt-4`}><div className="mb-3 text-xs text-muted-foreground">Governed work (approvals, proposals, agents): counts, never content</div>
+          <div className="grid gap-4 text-sm md:grid-cols-4">
+            <div><div className="text-2xl">{a.layer.workspacesAuthorized}</div><div className="text-xs text-muted-foreground">workspaces that approved a send</div></div>
+            <div><div className="text-2xl">{a.layer.mailSentByWorkspace}</div><div className="text-xs text-muted-foreground">workspaces whose contacts have been emailed</div></div>
+            <div><div className="text-2xl">{a.layer.proposalsDecided}</div><div className="text-xs text-muted-foreground">proposals decided, in {a.layer.workspacesDecided} workspace{a.layer.workspacesDecided === 1 ? "" : "s"}</div></div>
+            <div><div className="text-2xl">{a.layer.agentRuns}</div><div className="text-xs text-muted-foreground">agent runs finished, in {a.layer.workspacesWithAgents} workspace{a.layer.workspacesWithAgents === 1 ? "" : "s"}</div></div>
+          </div>
+        </div>)}
       <div className={`${card} mt-4`}><div className="mb-3 text-xs text-muted-foreground">Funnel (workspaces reaching each step)</div>
         {a.funnel.map((f) => (
           <div key={f.step} className="mb-2 flex items-center gap-3 text-sm">

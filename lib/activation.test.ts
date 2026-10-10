@@ -17,13 +17,15 @@ beforeAll(async () => {
     CREATE TABLE outreach_replies (user_id text, received_at timestamptz);
     CREATE TABLE ai_calls (workspace_id text, actor_id text, created_at timestamptz DEFAULT now());
     CREATE TABLE crm_deals (created_by text, created_at timestamptz DEFAULT now());
+    CREATE TABLE activation_by_workspace (org_id text, first_authorization_at timestamptz, first_message_sent_at timestamptz, first_send_at timestamptz, proposals_decided int, agent_runs int);
     INSERT INTO organizations VALUES ('full','Full','company', now() - interval '10 days', NULL), ('half','Half','company', now() - interval '5 days', NULL), ('empty','Empty','fund', now(), NULL), ('gone','Gone','company', now(), now());
     INSERT INTO memberships VALUES ('full','uf'),('half','uh'),('empty','ue');
     INSERT INTO startup_profiles VALUES ('full', now() - interval '9 days');
     INSERT INTO founder_match_runs VALUES ('full', now() - interval '8 days'),('half', now() - interval '4 days');
     INSERT INTO outreach_messages VALUES ('uf', now(), now()),('uh', now(), NULL);
     INSERT INTO outreach_replies VALUES ('uf', now());
-    INSERT INTO ai_calls VALUES ('full','uf', now());`)
+    INSERT INTO ai_calls VALUES ('full','uf', now());
+    INSERT INTO activation_by_workspace VALUES ('full', now(), now(), now(), 3, 2), ('half', NULL, NULL, NULL, 0, 0), ('empty', NULL, NULL, NULL, 1, 0);`)
 })
 
 describe("activation", () => {
@@ -43,5 +45,9 @@ describe("activation", () => {
     expect(Math.round(by.full.hoursToFirstValue!)).toBe(48); expect(Math.round(by.half.hoursToFirstValue!)).toBe(24)
     expect(Math.round(a.medianHoursToFirstValue!)).toBe(24)
     expect(a.wau).toBe(2); expect(a.mau).toBe(2)
+  })
+  it("reads the governed-work layer as counts per workspace", async () => {
+    const a = await loadActivation()
+    expect(a.layer).toEqual({ authorized: 1, workspacesAuthorized: 1, proposalsDecided: 4, workspacesDecided: 2, agentRuns: 2, workspacesWithAgents: 1, mailSentByWorkspace: 1 })
   })
 })

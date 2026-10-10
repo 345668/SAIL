@@ -18,7 +18,10 @@ export interface OrgActivation {
   hoursToFirstValue: number | null
   lastActive: string | null
 }
+/** The governed-work layer (Anker docs/architecture/37 phases 1 and 2), read from Anker's `activation_by_workspace` view: counts per workspace, never content. */
+export interface AgenticLayer { authorized: number; proposalsDecided: number; agentRuns: number; workspacesAuthorized: number; workspacesDecided: number; workspacesWithAgents: number; mailSentByWorkspace: number }
 export interface Activation {
+  layer: AgenticLayer | null
   orgs: OrgActivation[]
   funnel: { step: Step; orgs: number }[]
   loopComplete: number
@@ -59,8 +62,16 @@ export async function loadActivation(): Promise<Activation> {
       SELECT actor_id u FROM ai_calls WHERE actor_id IS NOT NULL AND created_at > now() - make_interval(days => ${days})
       UNION SELECT user_id FROM outreach_messages WHERE user_id IS NOT NULL AND created_at > now() - make_interval(days => ${days})
       UNION SELECT created_by FROM crm_deals WHERE created_by IS NOT NULL AND created_at > now() - make_interval(days => ${days})) a`) as any[])[0].n), 0)
+  // Mail attributed by the workspace of the contact it went to (the per-user queries above credit a person's mail to every workspace they belong to).
+  const layer = await safe<AgenticLayer | null>(async () => {
+    const [x] = (await sql`SELECT count(*) FILTER (WHERE first_authorization_at IS NOT NULL)::int AS authorized, coalesce(sum(proposals_decided),0)::int AS decided, coalesce(sum(agent_runs),0)::int AS runs,
+        count(*) FILTER (WHERE proposals_decided > 0)::int AS ws_decided, count(*) FILTER (WHERE agent_runs > 0)::int AS ws_agents, count(*) FILTER (WHERE first_message_sent_at IS NOT NULL OR first_send_at IS NOT NULL)::int AS ws_sent
+      FROM activation_by_workspace`) as any[]
+    return { authorized: x.authorized, workspacesAuthorized: x.authorized, proposalsDecided: x.decided, workspacesDecided: x.ws_decided, agentRuns: x.runs, workspacesWithAgents: x.ws_agents, mailSentByWorkspace: x.ws_sent }
+  }, null)
   const hrs = rows.map((r) => r.hoursToFirstValue).filter((h): h is number => h !== null).sort((a, b) => a - b)
   return {
+    layer,
     orgs: rows,
     funnel: STEPS.map((step) => ({ step, orgs: rows.filter((r) => r.reached[step]).length })),
     loopComplete: rows.filter((r) => r.loopComplete).length,
