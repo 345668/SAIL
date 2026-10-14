@@ -3,15 +3,20 @@ import { getSession } from "@/lib/auth"
 import { sql } from "@/lib/db"
 import { decryptSecret } from "@/lib/crypto"
 import { gatherSources } from "@/lib/news/ingest"
+import { loadNewsroomSkill } from "@/lib/newsroom-skill"
+import { polishArticle } from "@/lib/newsroom-style"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
 export const maxDuration = 300
 
 /**
- * AI first-draft for a newsroom article — "Anker AI", powered by the portal's
- * OWN stored Anthropic platform key (platform_api_keys, decrypted server-side).
- * No tenant AI router involved.
+ * AI first-draft for a newsroom article, "Anker AI", powered by the portal's
+ * OWN stored Mistral platform key (platform_api_keys, decrypted server-side;
+ * MISTRAL_API_KEY in the environment is the fallback). No tenant AI router
+ * involved. The voice and house rules come from skills/newsroom-writer.md, and
+ * every draft is cleaned of dashes and checked for banned phrases afterwards
+ * (lib/newsroom-style.ts), so the mechanical rules hold whatever the model does.
  *
  * Grounding: when source items are supplied, or auto-retrieved from the topic
  * and an editorial theme's keywords, their headlines and summaries are injected
@@ -31,18 +36,24 @@ const LENGTHS: Record<string, { words: number; structure: string }> = {
   feature:{ words: 3000, structure: "A feature essay: scene-set, thesis, 6-9 H2 sections (context→evidence→implications), two case studies, a counter-argument, strong close. No padding." },
 }
 
-async function anthropicKey(): Promise<string | null> {
+const MISTRAL_URL = "https://api.mistral.ai/v1/chat/completions"
+/** The newsroom model. Override with NEWSROOM_MISTRAL_MODEL; the "latest" alias follows Mistral's current large model. */
+const MODEL = () => process.env.NEWSROOM_MISTRAL_MODEL || "mistral-large-latest"
+
+async function mistralKey(): Promise<string | null> {
   const rows = await sql`
     SELECT secret_cipher FROM platform_api_keys
-    WHERE provider = 'anthropic' AND NOT disabled
+    WHERE provider = 'mistral' AND NOT disabled
     ORDER BY created_at DESC LIMIT 1`
   const cipher = (rows[0] as any)?.secret_cipher
-  if (!cipher) return null
-  try {
-    return decryptSecret(cipher)
-  } catch {
-    return null
+  if (cipher) {
+    try {
+      return decryptSecret(cipher)
+    } catch {
+      /* fall through to the environment */
+    }
   }
+  return process.env.MISTRAL_API_KEY?.trim() || null
 }
 
 export async function POST(req: Request) {
@@ -98,42 +109,46 @@ export async function POST(req: Request) {
       ).join("\n\n")
     : ""
 
-  const key = await anthropicKey()
+  const key = await mistralKey()
   if (!key) {
     return NextResponse.json(
-      { error: "No active Anthropic platform key. Add one under Platform API keys, then retry." },
+      { error: "No active Mistral platform key. Add one under Platform API keys (provider: mistral), then retry." },
       { status: 412 },
     )
   }
+  const skill = await loadNewsroomSkill()
 
-  const system = `You are the editor of Anker's public newsroom. You write ${blogType} pieces for ${audience}. Voice: ${voice}. Target ~${words} words. Structure: ${structure} Use Markdown with H2 (##) section headers. Do not invent specific statistics or quotes; keep claims defensible.`
+  const system = `${skill.body}
+
+# This piece
+Type: ${blogType}. Audience: ${audience}. Voice note from the editor: ${voice}. Target about ${words} words. Structure: ${structure}`
   const user = `Draft a newsroom article on: ${topic}.${themeLine}${sourcesBlock}
 
 Return ONLY valid minified JSON (no code fence) with exactly these keys:
 {"headline": string, "subheadline": string, "content": string (Markdown body), "suggestedTags": string[] (3-6 lowercase tags), "sentiment": "bullish"|"neutral"|"bearish"}`
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch(MISTRAL_URL, {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-api-key": key,
-        "anthropic-version": "2023-06-01",
-      },
+      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
-        max_tokens: 4096,
-        system,
-        messages: [{ role: "user", content: user }],
+        model: MODEL(),
+        max_tokens: skill.maxTokens,
+        temperature: skill.temperature,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
       }),
       signal: AbortSignal.timeout(120_000),
     })
     if (!res.ok) {
       const detail = await res.text().catch(() => "")
-      return NextResponse.json({ error: `Anthropic ${res.status}`, detail: detail.slice(0, 400) }, { status: 502 })
+      return NextResponse.json({ error: `Mistral ${res.status}`, detail: detail.slice(0, 400) }, { status: 502 })
     }
     const data = await res.json()
-    const text: string = (data?.content || []).map((c: any) => c?.text || "").join("").trim()
+    const text: string = String(data?.choices?.[0]?.message?.content ?? "").trim()
     const jsonStr = text.startsWith("{") ? text : text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)
     let parsed: any
     try {
@@ -143,15 +158,26 @@ Return ONLY valid minified JSON (no code fence) with exactly these keys:
       parsed = { headline: topic, subheadline: "", content: text, suggestedTags: [], sentiment: "neutral" }
     }
 
-    await sql`INSERT INTO company_audit_log (staff_id, staff_email, action, target, detail)
-      VALUES (${staff.id}, ${staff.email}, 'newsroom.ai_draft', ${blogType}, ${JSON.stringify({ topic, lengthKey }).slice(0, 500)}::jsonb)`
-
-    return NextResponse.json({
+    const tags = Array.isArray(parsed.suggestedTags) ? parsed.suggestedTags.filter((t: any) => typeof t === "string").slice(0, 8) : []
+    // House style: dashes out, banned phrases and an over-long headline reported for the editor.
+    const { article, report, headlineTooLong } = polishArticle({
       headline: String(parsed.headline || topic),
       subheadline: String(parsed.subheadline || ""),
       content: String(parsed.content || ""),
-      suggestedTags: Array.isArray(parsed.suggestedTags) ? parsed.suggestedTags.filter((s: any) => typeof s === "string").slice(0, 8) : [],
+      suggestedTags: tags,
+    })
+
+    await sql`INSERT INTO company_audit_log (staff_id, staff_email, action, target, detail)
+      VALUES (${staff.id}, ${staff.email}, 'newsroom.ai_draft', ${blogType}, ${JSON.stringify({ topic, lengthKey, model: MODEL(), skill: skill.fromFile ? "newsroom-writer" : "fallback" }).slice(0, 500)}::jsonb)`
+
+    return NextResponse.json({
+      headline: article.headline,
+      subheadline: article.subheadline,
+      content: article.content,
+      suggestedTags: article.suggestedTags,
       sentiment: ["bullish", "neutral", "bearish"].includes(parsed.sentiment) ? parsed.sentiment : "neutral",
+      // What the style pass did and what is left for a human to judge.
+      style: { ...report, headlineTooLong },
       // Returned structurally as well as inside the prose, so the editor can
       // persist provenance on the article instead of the link list being the
       // only record of what the piece was built from.
@@ -159,7 +185,7 @@ Return ONLY valid minified JSON (no code fence) with exactly these keys:
       usedSourceItemIds: grounding.map(s => s.id),
     })
   } catch (e: any) {
-    const msg = e?.name === "TimeoutError" ? "Anthropic timed out" : e?.message || "draft failed"
+    const msg = e?.name === "TimeoutError" ? "Mistral timed out" : e?.message || "draft failed"
     return NextResponse.json({ error: msg }, { status: 500 })
   }
 }

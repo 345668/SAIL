@@ -59,6 +59,7 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
   const [busy, setBusy] = useState(false)
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState<string | null>(null)
+  const [styleNote, setStyleNote] = useState<string | null>(null)
 
   useEffect(() => {
     fetch("/api/newsroom/themes").then((r) => r.json()).then((d) => {
@@ -119,6 +120,7 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
     if (!ai.topic.trim()) return
     setDrafting(true)
     setErr(null)
+    setStyleNote(null)
     try {
       const res = await fetch("/api/newsroom/draft", {
         method: "POST",
@@ -137,6 +139,16 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
         tags: Array.isArray(d.suggestedTags) && d.suggestedTags.length ? d.suggestedTags.join(", ") : f.tags,
         sentiment: d.sentiment || f.sentiment,
       })
+      // What the house-style pass did, and what a human still has to judge.
+      if (d.style) {
+        const bits: string[] = []
+        if (d.style.dashesRemoved) bits.push(`${d.style.dashesRemoved} dash${d.style.dashesRemoved === 1 ? "" : "es"} removed`)
+        if (d.style.bannedFound?.length) bits.push(`review these words: ${d.style.bannedFound.join(", ")}`)
+        if (d.style.headlineTooLong) bits.push("the headline is over 70 characters")
+        if (d.style.exclamations) bits.push("remove the exclamation marks")
+        if (d.style.emoji) bits.push("remove the emoji")
+        setStyleNote(bits.length ? `Style check: ${bits.join("; ")}.` : "Style check: clean.")
+      }
       setProvenance({
         sources: Array.isArray(d.sources) ? d.sources : [],
         sourceItemIds: Array.isArray(d.usedSourceItemIds) ? d.usedSourceItemIds : [],
@@ -276,7 +288,7 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Sparkles className="w-4 h-4" style={{ color: "var(--accent)" }} /> Anker AI first draft
           </div>
-          <p className="text-xs text-muted-foreground">Generates headline, body, tags and sentiment using the platform’s own Anthropic key. Fills the form — nothing is saved until you do.</p>
+          <p className="text-xs text-muted-foreground">Generates headline, body, tags and sentiment with Mistral, in the Anker house style (skills/newsroom-writer.md), using the platform’s own Mistral key. Fills the form — nothing is saved until you do.</p>
           <label className="block space-y-1.5">
             <span className={label}>Topic</span>
             <input value={ai.topic} onChange={(e) => setAi({ ...ai, topic: e.target.value })} placeholder="e.g. the rise of GP-led secondaries" className={field} />
@@ -311,6 +323,7 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
             style={{ background: "var(--primary)", color: "var(--primary-foreground)" }}>
             {drafting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} {drafting ? "Drafting…" : "Draft with AI"}
           </button>
+          {styleNote && <p role="status" className="text-xs text-muted-foreground">{styleNote}</p>}
         </div>
 
         {/* Metadata */}

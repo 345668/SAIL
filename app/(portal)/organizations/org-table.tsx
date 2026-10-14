@@ -68,7 +68,7 @@ export function OrgTable({ rows }: { rows: OrgRow[] }) {
                 <td className="px-4 py-2.5 text-muted-foreground">{fmtDate(r.createdAt)}</td>
                 <td className="px-4 py-2.5 text-muted-foreground">{fmtDate(r.lastAi)}</td>
                 <td className="px-4 py-2.5 text-right tabular-nums">{r.calls30}</td>
-                <td className="px-4 py-2.5 text-right"><a href={`/organizations/${encodeURIComponent(r.id)}/control`} className="mr-2 text-xs underline">Plan and state</a><a href={`/organizations/${encodeURIComponent(r.id)}`} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border text-xs hover:border-[var(--accent)]"><Eye className="w-3.5 h-3.5" /> Inspect</a></td>
+                <td className="px-4 py-2.5 text-right"><a href={`/organizations/${encodeURIComponent(r.id)}/control`} className="mr-2 text-xs underline">Plan and state</a><a href={`/organizations/${encodeURIComponent(r.id)}/credits`} className="mr-2 text-xs underline">Studio credits</a><a href={`/organizations/${encodeURIComponent(r.id)}`} className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border border-border text-xs hover:border-[var(--accent)]"><Eye className="w-3.5 h-3.5" /> Inspect</a></td>
               </tr>
             ))}
           </tbody>
