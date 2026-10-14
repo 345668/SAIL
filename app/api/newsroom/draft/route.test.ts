@@ -86,7 +86,7 @@ describe("the newsroom draft route", () => {
     vi.stubGlobal("fetch", mistral("rate limited", 429))
     const bad = await POST(post())
     expect(bad.status).toBe(502)
-    expect((await bad.json()).error).toBe("Mistral 429")
+    expect((await bad.json()).error).toMatch(/^Mistral 429/)
     vi.stubGlobal("fetch", mistral(`Plain text ${EM} not JSON`))
     const j = await (await POST(post())).json()
     expect(j.content).toBe("Plain text, not JSON")
@@ -97,5 +97,32 @@ describe("the newsroom draft route", () => {
     await POST(post())
     const detail = JSON.parse(String(state.audit[0].at(-1)))
     expect(detail).toMatchObject({ model: "mistral-large-latest", skill: "newsroom-writer" })
+  })
+  it("sends a named user agent", async () => {
+    state.keyRows = [{ secret_cipher: "enc:mk" }]
+    const f = mistral(article()); vi.stubGlobal("fetch", f)
+    await POST(post())
+    expect((f.mock.calls[0][1] as any).headers["user-agent"]).toMatch(/^Anker-SAIL/)
+  })
+  it("explains a 403 with Mistral's own message and the usual causes", async () => {
+    state.keyRows = [{ secret_cipher: "enc:mk" }]
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ message: "Forbidden: organization not allowed", request_id: "r1" }), { status: 403 })))
+    const j = await (await POST(post())).json()
+    expect(j.error).toContain("Mistral 403: Forbidden: organization not allowed")
+    expect(j.error).toMatch(/revoked|restricted|no active plan/)
+    expect(j.error).toMatch(/Platform API keys/)
+  })
+  it("tells a Cloudflare block from an API answer", async () => {
+    state.keyRows = [{ secret_cipher: "enc:mk" }]
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("<html><title>Attention Required! | Cloudflare</title></html>", { status: 403 })))
+    const j = await (await POST(post())).json()
+    expect(j.error).toMatch(/^Mistral 403\. Mistral's edge network blocked/)
+  })
+  it("names each common status", async () => {
+    const { mistralProblem } = await import("@/lib/mistral-errors")
+    expect(mistralProblem(401, "{}")).toMatch(/not recognised/)
+    expect(mistralProblem(429, '{"message":"rate"}')).toMatch(/rate limited/)
+    expect(mistralProblem(404, "")).toMatch(/NEWSROOM_MISTRAL_MODEL/)
+    expect(mistralProblem(500, "oops")).toBe("Mistral 500: oops")
   })
 })

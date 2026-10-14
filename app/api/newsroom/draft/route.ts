@@ -4,6 +4,7 @@ import { sql } from "@/lib/db"
 import { decryptSecret } from "@/lib/crypto"
 import { gatherSources } from "@/lib/news/ingest"
 import { loadNewsroomSkill } from "@/lib/newsroom-skill"
+import { mistralProblem } from "@/lib/mistral-errors"
 import { polishArticle } from "@/lib/newsroom-style"
 
 export const dynamic = "force-dynamic"
@@ -130,7 +131,13 @@ Return ONLY valid minified JSON (no code fence) with exactly these keys:
   try {
     const res = await fetch(MISTRAL_URL, {
       method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${key}` },
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json",
+        authorization: `Bearer ${key}`,
+        // A named client: some edge filters answer 403 to anonymous server requests.
+        "user-agent": "Anker-SAIL/1.0 (+https://an-ker.de)",
+      },
       body: JSON.stringify({
         model: MODEL(),
         max_tokens: skill.maxTokens,
@@ -145,7 +152,8 @@ Return ONLY valid minified JSON (no code fence) with exactly these keys:
     })
     if (!res.ok) {
       const detail = await res.text().catch(() => "")
-      return NextResponse.json({ error: `Mistral ${res.status}`, detail: detail.slice(0, 400) }, { status: 502 })
+      console.error("[newsroom] Mistral refused the draft:", res.status, detail.slice(0, 300))
+      return NextResponse.json({ error: mistralProblem(res.status, detail), detail: detail.slice(0, 400) }, { status: 502 })
     }
     const data = await res.json()
     const text: string = String(data?.choices?.[0]?.message?.content ?? "").trim()
