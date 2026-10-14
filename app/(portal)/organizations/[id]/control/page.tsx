@@ -24,7 +24,7 @@ export default async function ControlPage({ params, searchParams }: { params: Pr
   const effective = (k: string) => (k in c.features ? c.features[k] : planOf ? planOf.features[k] === true : true)
   return (
     <PageShell eyebrow="Organizations" title={`${c.org.name}: plan and state`} description="What this workspace may use, and whether it is running. Open by default: with no plan set, everything is allowed. Changes need a reason, are audited, and appear in the workspace's own access log.">
-      <p className="mb-4 text-sm"><Link className="underline" href="/organizations">← Organizations</Link> · <Link className="underline" href={`/organizations/${encodeURIComponent(id)}`}>Inspect usage</Link> · <Link className="underline" href={`/organizations/${encodeURIComponent(id)}/requests`}>Export and erasure</Link></p>
+      <p className="mb-4 text-sm"><Link className="underline" href="/organizations">← Organizations</Link> · <Link className="underline" href={`/organizations/${encodeURIComponent(id)}`}>Inspect usage</Link> · <Link className="underline" href={`/organizations/${encodeURIComponent(id)}/credits`}>Studio credits</Link> · <Link className="underline" href={`/organizations/${encodeURIComponent(id)}/requests`}>Export and erasure</Link></p>
       {err && <p className="mb-4 rounded-md border border-[var(--danger)] p-3 text-sm text-[var(--danger)]">{err}</p>}
       {ok && <p className="mb-4 rounded-md border border-border p-3 text-sm">{ok}</p>}
       {!admin && <p className="mb-4 text-sm text-muted-foreground">You can read this. Changing it needs an admin.</p>}
@@ -62,8 +62,8 @@ export default async function ControlPage({ params, searchParams }: { params: Pr
               </div>))}</div>
           <div><div className="text-xs font-medium text-muted-foreground">Limits (blank follows the plan, "unlimited" removes it)</div>
             {LIMITS.map((l) => (
-              <label key={l.key} className="mt-2 flex items-center justify-between gap-3 text-sm"><span>{l.label}<span className="ml-2 text-xs text-muted-foreground">plan: {planOf ? (planOf.limits[l.key] ?? "unlimited") : "none"}</span></span>
-                <input name={`l_${l.key}`} disabled={!admin} defaultValue={l.key in c.limits ? (c.limits[l.key] === null ? "unlimited" : String(c.limits[l.key])) : ""} className="w-28 rounded-md border border-border bg-card px-2 py-1 text-xs" /></label>))}</div>
+              <label key={l.key} className="mt-2 flex items-center justify-between gap-3 text-sm"><span>{l.label}<span className="ml-2 text-xs text-muted-foreground">plan: {planOf ? (planOf.limits[l.key] === -1 ? "unlimited" : planOf.limits[l.key] ?? "unlimited") : "none"}</span></span>
+                <input name={`l_${l.key}`} disabled={!admin} defaultValue={l.key in c.limits ? (c.limits[l.key] === null || c.limits[l.key] === -1 ? "unlimited" : String(c.limits[l.key])) : ""} className="w-28 rounded-md border border-border bg-card px-2 py-1 text-xs" /></label>))}</div>
         </div>
         <label className="mt-4 block text-sm">Notes (internal)<input name="notes" defaultValue={c.notes ?? ""} disabled={!admin} maxLength={500} className={input} /></label>
         {admin && <label className="mt-3 block text-sm">Reason for this change<input name="reason" required minLength={MIN_REASON} maxLength={500} className={input} placeholder="Agreed upgrade to Pro, ticket 123" /></label>}
