@@ -17,6 +17,8 @@ export const LIMITS = [
   { key: "ai_spend_usd_month", label: "AI spend per month (USD)" }, { key: "seats", label: "Seats" }, { key: "outreach_sends_day", label: "Outreach sends per day" },
   { key: "intake_submissions_month", label: "Intake applications per month" }, { key: "storage_mb", label: "Storage (MB)" },
   { key: "ai_studio_daily_credits", label: "AI Studio credits per day" },
+  { key: "telegram_voice_per_day", label: "Telegram voice notes per device per day (default 40; type unlimited for none)" }, { key: "telegram_files_per_day", label: "Telegram files per device per day (default 30; type unlimited for none)" },
+  { key: "telegram_audio_minutes_per_day", label: "Telegram audio minutes per workspace per day (default 120; type unlimited for none)" }, { key: "telegram_voice_replies_per_day", label: "Telegram spoken replies per workspace per day (default 20; type unlimited for none)" },
 ] as const
 export type FeatureKey = (typeof FEATURES)[number]["key"]
 export type LimitKey = (typeof LIMITS)[number]["key"]
@@ -98,8 +100,8 @@ export async function saveEntitlements(staff: Staff, orgId: string, input: Entit
   for (const l of LIMITS) {
     const v = String(input.limits[l.key] ?? "").trim().toLowerCase()
     if (v === "") continue
-    // Studio credits: an absent limit means the platform default (1,000), so "unlimited" is stored as -1, never null.
-    if (v === "unlimited") { limits[l.key] = l.key === "ai_studio_daily_credits" ? -1 : null; continue }
+    // Studio credits and the Telegram allowances: an absent limit means the platform default (1,000 credits; 40 voice notes), so "unlimited" is stored as -1, never null.
+    if (v === "unlimited") { limits[l.key] = l.key === "ai_studio_daily_credits" || l.key.startsWith("telegram_") ? -1 : null; continue }
     const n = Number(v.replace(/,/g, ""))
     if (!Number.isFinite(n) || n < 0) throw new ControlError(`${l.label}: enter a number, "unlimited", or leave blank to follow the plan.`)
     limits[l.key] = n
