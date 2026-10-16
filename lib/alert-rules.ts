@@ -19,6 +19,7 @@ export const RULES = [
   { key: "cost_coverage", label: "AI cost records are incomplete", text: "Under 95% of the last day's AI calls have a cost, so a plan's AI allowance is not seeing the real spend.", severity: 3 },
   { key: "unpriced_model", label: "An AI model has no price", text: "Calls to a model with no price were recorded in the last day. Add the price in Model prices.", severity: 2 },
   { key: "workspace_at_limit", label: "A workspace has used its AI allowance", text: "A workspace passed 100% of its monthly AI allowance in the last day. Digest only.", severity: 3 },
+  { key: "schema_behind", label: "The database is behind the deployed code", text: "The running version expects database migrations that have not been applied.", severity: 2 },
 ] as const
 export type RuleKey = (typeof RULES)[number]["key"]
 export const MAX_MUTE_DAYS = 30
