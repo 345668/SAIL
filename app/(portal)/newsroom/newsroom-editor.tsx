@@ -60,6 +60,8 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
   const [saved, setSaved] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const [styleNote, setStyleNote] = useState<string | null>(null)
+  // The model behind an AI first draft, saved with the article.
+  const [aiModel, setAiModel] = useState<string | null>(null)
 
   useEffect(() => {
     fetch("/api/newsroom/themes").then((r) => r.json()).then((d) => {
@@ -113,6 +115,7 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
       status: overrideStatus ?? status,
       sources: provenance.sources,
       source_item_ids: provenance.sourceItemIds,
+      ...(aiModel ? { ai_model: aiModel } : {}),
     }
   }
 
@@ -139,6 +142,7 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
         tags: Array.isArray(d.suggestedTags) && d.suggestedTags.length ? d.suggestedTags.join(", ") : f.tags,
         sentiment: d.sentiment || f.sentiment,
       })
+      setAiModel(typeof d.aiModel === "string" ? d.aiModel : null)
       // What the house-style pass did, and what a human still has to judge.
       if (d.style) {
         const bits: string[] = []

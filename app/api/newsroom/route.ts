@@ -21,21 +21,21 @@ export async function GET(req: Request) {
     let rows: any[]
     const like = `%${q}%`
     if (q && status && blogType) {
-      rows = await sql`SELECT * FROM news_articles WHERE status=${status} AND blog_type=${blogType} AND (headline ILIKE ${like} OR subheadline ILIKE ${like}) ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+      rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles WHERE status=${status} AND blog_type=${blogType} AND (headline ILIKE ${like} OR executive_summary ILIKE ${like}) ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
     } else if (q && status) {
-      rows = await sql`SELECT * FROM news_articles WHERE status=${status} AND (headline ILIKE ${like} OR subheadline ILIKE ${like}) ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+      rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles WHERE status=${status} AND (headline ILIKE ${like} OR executive_summary ILIKE ${like}) ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
     } else if (q && blogType) {
-      rows = await sql`SELECT * FROM news_articles WHERE blog_type=${blogType} AND (headline ILIKE ${like} OR subheadline ILIKE ${like}) ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+      rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles WHERE blog_type=${blogType} AND (headline ILIKE ${like} OR executive_summary ILIKE ${like}) ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
     } else if (status && blogType) {
-      rows = await sql`SELECT * FROM news_articles WHERE status=${status} AND blog_type=${blogType} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+      rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles WHERE status=${status} AND blog_type=${blogType} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
     } else if (q) {
-      rows = await sql`SELECT * FROM news_articles WHERE headline ILIKE ${like} OR subheadline ILIKE ${like} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+      rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles WHERE headline ILIKE ${like} OR executive_summary ILIKE ${like} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
     } else if (status) {
-      rows = await sql`SELECT * FROM news_articles WHERE status=${status} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+      rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles WHERE status=${status} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
     } else if (blogType) {
-      rows = await sql`SELECT * FROM news_articles WHERE blog_type=${blogType} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+      rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles WHERE blog_type=${blogType} ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
     } else {
-      rows = await sql`SELECT * FROM news_articles ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+      rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
     }
     return NextResponse.json({ articles: rows.map(normalizeRow) })
   } catch (e: any) {
@@ -56,8 +56,11 @@ export async function POST(req: Request) {
   const headline = String(b.headline || "").trim()
   if (!headline) return NextResponse.json({ error: "headline is required" }, { status: 400 })
 
+  // The model that wrote the first draft, so the record is true (the column's own default says 'mistral'); a hand-written piece says 'manual'.
+  const aiModel = typeof b.ai_model === "string" && b.ai_model.trim() ? b.ai_model.trim().slice(0, 60) : "manual"
   const subheadline = b.subheadline ? String(b.subheadline).trim() : null
-  const content = b.content != null ? String(b.content) : null
+  // news_articles.content is NOT NULL: an empty draft is an empty string, not null.
+  const content = b.content != null ? String(b.content) : ""
   const author = b.author ? String(b.author).trim() : "Anker"
   const blogType = ARTICLE_BLOG_TYPES.includes(b.blog_type) ? b.blog_type : "Insights"
   const status = ARTICLE_STATUSES.includes(b.status) ? b.status : "draft"
@@ -82,13 +85,13 @@ export async function POST(req: Request) {
     // article at all. The driver maps a JS array to a Postgres array directly.
     const rows = withSentiment
       ? await sql`
-          INSERT INTO news_articles (headline, subheadline, content, author, blog_type, tags, status, image_url, slug, scheduled_for, source_pdf_url, sentiment, published_at, created_by, sources, source_item_ids)
-          VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, ${tags}, ${status}, ${imageUrl}, ${slug}, ${scheduledFor}, ${sourcePdfUrl}, ${sentiment}, ${publishNow ? new Date().toISOString() : null}, ${staff.email}, ${sources ? JSON.stringify(sources) : null}::jsonb, ${sourceItemIds})
-          RETURNING *`
+          INSERT INTO news_articles (headline, executive_summary, content, author, blog_type, tags, status, image_url, slug, scheduled_for, source_pdf_url, sentiment, published_at, created_by, sources, source_item_ids, ai_model)
+          VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, ${tags}, ${status}, ${imageUrl}, ${slug}, ${scheduledFor}, ${sourcePdfUrl}, ${sentiment}, ${publishNow ? new Date().toISOString() : null}, ${staff.email}, ${sources ? JSON.stringify(sources) : null}::jsonb, ${sourceItemIds}, ${aiModel})
+          RETURNING *, executive_summary AS subheadline`
       : await sql`
-          INSERT INTO news_articles (headline, subheadline, content, author, blog_type, tags, status, image_url, slug, scheduled_for, source_pdf_url, published_at, created_by, sources, source_item_ids)
-          VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, ${tags}, ${status}, ${imageUrl}, ${slug}, ${scheduledFor}, ${sourcePdfUrl}, ${publishNow ? new Date().toISOString() : null}, ${staff.email}, ${sources ? JSON.stringify(sources) : null}::jsonb, ${sourceItemIds})
-          RETURNING *`
+          INSERT INTO news_articles (headline, executive_summary, content, author, blog_type, tags, status, image_url, slug, scheduled_for, source_pdf_url, published_at, created_by, sources, source_item_ids, ai_model)
+          VALUES (${headline}, ${subheadline}, ${content}, ${author}, ${blogType}, ${tags}, ${status}, ${imageUrl}, ${slug}, ${scheduledFor}, ${sourcePdfUrl}, ${publishNow ? new Date().toISOString() : null}, ${staff.email}, ${sources ? JSON.stringify(sources) : null}::jsonb, ${sourceItemIds}, ${aiModel})
+          RETURNING *, executive_summary AS subheadline`
 
     await sql`INSERT INTO company_audit_log (staff_id, staff_email, action, target, detail)
       VALUES (${staff.id}, ${staff.email}, 'newsroom.create', ${(rows[0] as any).id}, ${JSON.stringify({ headline, status })}::jsonb)`

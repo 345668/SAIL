@@ -148,6 +148,7 @@ Return ONLY valid minified JSON (no code fence) with exactly these keys:
       content: article.content,
       suggestedTags: article.suggestedTags,
       sentiment: ["bullish", "neutral", "bearish"].includes(parsed.sentiment) ? parsed.sentiment : "neutral",
+      aiModel: done.model,
       // What the style pass did and what is left for a human to judge.
       style: { ...report, headlineTooLong },
       // Returned structurally as well as inside the prose, so the editor can

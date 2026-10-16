@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 
 async function load(id: string): Promise<NewsArticle | null> {
   try {
-    const rows = await sql`SELECT * FROM news_articles WHERE id = ${id} LIMIT 1`
+    const rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles WHERE id = ${id} LIMIT 1`
     return rows.length ? normalizeRow(rows[0]) : null
   } catch {
     return null

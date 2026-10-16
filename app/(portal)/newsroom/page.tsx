@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic"
 
 async function loadArticles(): Promise<{ articles: NewsArticle[]; error: string | null }> {
   try {
-    const rows = await sql`SELECT * FROM news_articles ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
+    const rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles ORDER BY updated_at DESC NULLS LAST, created_at DESC LIMIT 500`
     return { articles: (rows as any[]).map(normalizeRow), error: null }
   } catch (e: any) {
     return { articles: [], error: e?.message || "load failed" }

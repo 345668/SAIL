@@ -14,7 +14,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   if (!staff) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { id } = await ctx.params
   try {
-    const rows = await sql`SELECT * FROM news_articles WHERE id = ${id} LIMIT 1`
+    const rows = await sql`SELECT *, executive_summary AS subheadline FROM news_articles WHERE id = ${id} LIMIT 1`
     if (rows.length === 0) return NextResponse.json({ error: "not found" }, { status: 404 })
     return NextResponse.json({ article: normalizeRow(rows[0]) })
   } catch (e: any) {
@@ -64,8 +64,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     // present in the body, so status-only quick actions and full editor saves
     // share this one endpoint without clobbering untouched fields.
     if ("headline" in b) await sql`UPDATE news_articles SET headline = ${String(b.headline)} WHERE id = ${id}`
-    if ("subheadline" in b) await sql`UPDATE news_articles SET subheadline = ${b.subheadline ?? null} WHERE id = ${id}`
-    if ("content" in b) await sql`UPDATE news_articles SET content = ${b.content ?? null} WHERE id = ${id}`
+    if ("subheadline" in b) await sql`UPDATE news_articles SET executive_summary = ${b.subheadline ?? null} WHERE id = ${id}`
+    if ("content" in b) await sql`UPDATE news_articles SET content = ${b.content ?? ""} WHERE id = ${id}`
     if (typeof b.author === "string") await sql`UPDATE news_articles SET author = ${b.author} WHERE id = ${id}`
     if (typeof b.blog_type === "string" && ARTICLE_BLOG_TYPES.includes(b.blog_type))
       await sql`UPDATE news_articles SET blog_type = ${b.blog_type} WHERE id = ${id}`
@@ -89,7 +89,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     if (publishing) await sql`UPDATE news_articles SET published_at = COALESCE(published_at, NOW()) WHERE id = ${id}`
     await sql`UPDATE news_articles SET updated_at = NOW() WHERE id = ${id}`
 
-    const updated = await sql`SELECT * FROM news_articles WHERE id = ${id} LIMIT 1`
+    const updated = await sql`SELECT *, executive_summary AS subheadline FROM news_articles WHERE id = ${id} LIMIT 1`
     await sql`INSERT INTO company_audit_log (staff_id, staff_email, action, target, detail)
       VALUES (${staff.id}, ${staff.email}, 'newsroom.update', ${id}, ${JSON.stringify({ status: b.status ?? null }).slice(0, 1000)}::jsonb)`
     return NextResponse.json({ article: normalizeRow(updated[0]) })
