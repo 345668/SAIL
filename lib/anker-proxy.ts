@@ -78,6 +78,9 @@ export const PROXY_ALLOWLIST = [
   "agents/runs",
   "agents/profile",
   "agents/tick",
+  // Privacy requests from directory persons (Anker docs/architecture/54, D3). Relayed because the requester's details are encrypted with the tenant app's key and the
+  // work (suppression, tombstones, the mails to the requester) is done by the tenant app. Portal service principal only on that side.
+  "admin/privacy-requests",
 ] as const
 
 /** Paths that require an acting user — refused without one. */
@@ -90,7 +93,7 @@ export const ACT_AS_REQUIRED = new Set<string>([
 export type ProxyPath = (typeof PROXY_ALLOWLIST)[number]
 
 /** Per-record paths. Anchored and id-shaped, so this cannot widen into a wildcard. */
-const PROXY_PATTERNS = [/^campaign\/[0-9a-f-]{8,40}$/i, /^campaign\/[0-9a-f-]{8,40}\/deck$/i, /^admin\/tenants\/[A-Za-z0-9:_-]{1,120}\/requests$/]
+const PROXY_PATTERNS = [/^campaign\/[0-9a-f-]{8,40}$/i, /^campaign\/[0-9a-f-]{8,40}\/deck$/i, /^admin\/tenants\/[A-Za-z0-9:_-]{1,120}\/requests$/, /^admin\/privacy-requests\/[0-9a-f-]{36}$/i]
 
 export function isProxyAllowed(path: string): boolean {
   return (PROXY_ALLOWLIST as readonly string[]).includes(path) || PROXY_PATTERNS.some((p) => p.test(path))
