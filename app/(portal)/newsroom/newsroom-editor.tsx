@@ -288,7 +288,7 @@ export function NewsroomEditor({ article }: { article?: NewsArticle }) {
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Sparkles className="w-4 h-4" style={{ color: "var(--accent)" }} /> Anker AI first draft
           </div>
-          <p className="text-xs text-muted-foreground">Generates headline, body, tags and sentiment with Mistral, in the Anker house style (skills/newsroom-writer.md), using the platform’s own Mistral key. Fills the form — nothing is saved until you do.</p>
+          <p className="text-xs text-muted-foreground">Generates headline, body, tags and sentiment with Qwen (free tier first, the token plan as backup), in the Anker house style (skills/newsroom-writer.md). Fills the form — nothing is saved until you do.</p>
           <label className="block space-y-1.5">
             <span className={label}>Topic</span>
             <input value={ai.topic} onChange={(e) => setAi({ ...ai, topic: e.target.value })} placeholder="e.g. the rise of GP-led secondaries" className={field} />

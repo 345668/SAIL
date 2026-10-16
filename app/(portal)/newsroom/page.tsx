@@ -22,7 +22,7 @@ export default async function NewsroomPage() {
     <PageShell
       eyebrow="Data & growth"
       title="Newsroom CMS"
-      description="Author and publish the platform’s own public newsroom at an-ker.de/newsroom — the company’s marketing surface, not tenant content. AI first-drafts run on the portal’s own Mistral key, in the Anker house style; drafts stay private until you publish."
+      description="Author and publish the platform’s own public newsroom at an-ker.de/newsroom — the company’s marketing surface, not tenant content. AI first-drafts run on Qwen (free tier first, the token plan as backup), in the Anker house style; drafts stay private until you publish."
       action={
         <div className="flex items-center gap-2">
           <Link
