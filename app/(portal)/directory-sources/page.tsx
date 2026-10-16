@@ -30,7 +30,7 @@ export default async function DirectorySourcesPage({ searchParams }: { searchPar
               <h2 className="text-sm font-semibold break-all">{s.label && s.label !== s.source ? `${s.label} ` : ""}<code className="text-xs font-normal">{s.source}</code></h2>
               <p className="text-xs"><span className={`font-medium ${badge[s.status] ?? ""}`}>{s.status}</span> · {s.people.toLocaleString()} people · {s.firms.toLocaleString()} firms</p>
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">May be used for: {s.status === "withdrawn" ? "nothing (withdrawn)" : s.permitted_use.map((u) => PURPOSES.find(([k]) => k === u)?.[1] ?? u).join(", ") || "nothing"}{s.licence_summary ? ` · Licence: ${s.licence_summary}` : " · No licence recorded"}{s.forbidden_use ? ` · Not allowed: ${s.forbidden_use}` : ""}{s.withdraw_reason ? ` · Withdrawn because: ${s.withdraw_reason}` : ""}</p>
+            <p className="mt-1 text-xs text-muted-foreground">May be used for: {s.status === "withdrawn" ? "nothing (withdrawn)" : s.permitted_use.map((u) => PURPOSES.find(([k]) => k === u)?.[1] ?? u).join(", ") || "nothing"}{s.licence_summary ? ` · Licence: ${s.licence_summary}` : " · No licence recorded"}{s.forbidden_use ? ` · Not allowed: ${s.forbidden_use}` : ""}{s.withdraw_reason ? ` · Withdrawn because: ${s.withdraw_reason}` : ""}{s.purge_on ? ` · People hidden now; deleted on ${s.purge_on} unless restored` : ""}{s.purged_at ? ` · People deleted on ${s.purged_at}` : ""}</p>
             {admin && s.status !== "withdrawn" && (
               <details className="mt-3"><summary className="cursor-pointer text-xs underline">Review or edit</summary>
                 <form action={review} className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -49,12 +49,12 @@ export default async function DirectorySourcesPage({ searchParams }: { searchPar
                 </form>
                 <form action={withdraw} className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3">
                   <input type="hidden" name="source" value={s.source} />
-                  <label className="min-w-[240px] flex-1 text-xs">Withdraw this source (blocks all use at once{s.people > WITHDRAW_ADMIN_CEILING ? `; over ${WITHDRAW_ADMIN_CEILING.toLocaleString()} people needs a superadmin` : ""})<input name="reason" required minLength={MIN_REASON} maxLength={500} placeholder="Why, e.g. the supplier asked us to remove it" className={`${field} mt-1 block w-full`} /></label>
+                  <label className="min-w-[240px] flex-1 text-xs">Withdraw this source (hides and blocks everyone at once, deleted after 30 days{s.people > WITHDRAW_ADMIN_CEILING ? `; over ${WITHDRAW_ADMIN_CEILING.toLocaleString()} people needs a superadmin` : ""})<input name="reason" required minLength={MIN_REASON} maxLength={500} placeholder="Why, e.g. the supplier asked us to remove it" className={`${field} mt-1 block w-full`} /></label>
                   <button className="h-8 rounded-md border border-[var(--danger)] px-3 text-xs text-[var(--danger)]">Withdraw {s.people.toLocaleString()} people</button>
                 </form>
               </details>
             )}
-            {admin && s.status === "withdrawn" && (
+            {admin && s.status === "withdrawn" && !s.purged_at && (
               <form action={restore} className="mt-3 flex flex-wrap items-end gap-2"><input type="hidden" name="source" value={s.source} />
                 <label className="min-w-[240px] flex-1 text-xs">Restore as unreviewed<input name="reason" required minLength={MIN_REASON} maxLength={500} placeholder="Why" className={`${field} mt-1 block w-full`} /></label>
                 <button className="h-8 rounded-md border border-border px-3 text-xs">Restore</button></form>

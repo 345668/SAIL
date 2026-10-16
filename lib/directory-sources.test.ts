@@ -19,9 +19,9 @@ beforeAll(async () => {
   db = new PGlite()
   state.q = async (q: string, v: unknown[] = []) => (await db.query(q, v)).rows
   await db.exec(`CREATE TABLE company_audit_log (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY, staff_id text, staff_email text, action text NOT NULL, target text, detail jsonb, created_at timestamptz NOT NULL DEFAULT now());
-    CREATE TABLE investors (id serial PRIMARY KEY, source text); CREATE TABLE investment_firms (id serial PRIMARY KEY, source text);
+    CREATE TABLE investors (id serial PRIMARY KEY, source text, is_active boolean DEFAULT true, hidden_by_source boolean NOT NULL DEFAULT false); CREATE TABLE investment_firms (id serial PRIMARY KEY, source text);
     CREATE TABLE directory_sources (source text PRIMARY KEY, label text, kind text NOT NULL DEFAULT 'unknown', acquired_at date, supplier text, licence_summary text, permitted_use text[] NOT NULL DEFAULT '{}', forbidden_use text, lawful_basis_note text,
-      notice_status text NOT NULL DEFAULT 'pending', status text NOT NULL DEFAULT 'unreviewed', evidence_ref text, reviewed_by text, reviewed_at timestamptz, withdrawn_at timestamptz, withdraw_reason text, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
+      notice_status text NOT NULL DEFAULT 'pending', status text NOT NULL DEFAULT 'unreviewed', evidence_ref text, reviewed_by text, reviewed_at timestamptz, withdrawn_at timestamptz, withdraw_reason text, purged_at timestamptz, created_at timestamptz NOT NULL DEFAULT now(), updated_at timestamptz NOT NULL DEFAULT now());
     INSERT INTO directory_sources (source, permitted_use) VALUES ('folk', ARRAY['internal_matching']), ('big', ARRAY['internal_matching']);
     INSERT INTO investors (source) SELECT 'folk' FROM generate_series(1, 3); INSERT INTO investors (source) SELECT 'big' FROM generate_series(1, ${WITHDRAW_ADMIN_CEILING + 1}); INSERT INTO investment_firms (source) VALUES ('folk');`)
 }, 30000)
@@ -65,6 +65,19 @@ describe("directory sources", () => {
     await restoreSource(admin, "folk", why)
     expect(await row("folk")).toMatchObject({ status: "unreviewed", withdraw_reason: null, permitted_use: ["internal_matching"] })
     expect((await fail(restoreSource(admin, "folk", why)))?.message).toMatch(/Only a withdrawn/)
+  })
+  it("hides a withdrawn source's people and a restore brings back exactly those, not people who were already inactive", async () => {
+    await db.exec("INSERT INTO directory_sources (source) VALUES ('hid'); INSERT INTO investors (source, is_active) VALUES ('hid', true), ('hid', true), ('hid', false)")
+    await withdrawSource(admin, "hid", why)
+    expect((await db.query("SELECT is_active, hidden_by_source FROM investors WHERE source='hid' ORDER BY id")).rows).toEqual([{ is_active: false, hidden_by_source: true }, { is_active: false, hidden_by_source: true }, { is_active: false, hidden_by_source: false }])
+    const w = (await listSources()).find((x) => x.source === "hid")!
+    expect(w.purge_on).toBe(new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10))
+    await restoreSource(admin, "hid", why)
+    expect((await db.query("SELECT is_active, hidden_by_source FROM investors WHERE source='hid' ORDER BY id")).rows).toEqual([{ is_active: true, hidden_by_source: false }, { is_active: true, hidden_by_source: false }, { is_active: false, hidden_by_source: false }])
+  })
+  it("cannot restore a source whose people were already deleted", async () => {
+    await db.exec("INSERT INTO directory_sources (source, status, withdrawn_at, purged_at) VALUES ('gone', 'withdrawn', now() - interval '40 days', now())")
+    expect((await fail(restoreSource(admin, "gone", why)))?.message).toMatch(/already been deleted/)
   })
   it("withdrawing more than the ceiling needs a superadmin", async () => {
     expect((await fail(withdrawSource(admin, "big", why)))?.status).toBe(403)

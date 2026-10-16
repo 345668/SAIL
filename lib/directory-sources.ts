@@ -22,8 +22,10 @@ export const WITHDRAW_ADMIN_CEILING = 1000
 export interface SourceView {
   source: string; label: string | null; kind: string; supplier: string | null; acquired_at: string | null; licence_summary: string | null
   permitted_use: string[]; forbidden_use: string | null; lawful_basis_note: string | null; status: string; reviewed_by: string | null; reviewed_at: string | null
-  withdraw_reason: string | null; people: number; firms: number
+  withdraw_reason: string | null; withdrawn_at: string | null; purged_at: string | null; purge_on: string | null; people: number; firms: number
 }
+/** Days a withdrawn source is held (hidden and blocked, but restorable) before Anker deletes its people. */
+export const HOLD_DAYS = 30
 
 const reasonOf = (r: string) => {
   const t = (r ?? "").trim()
@@ -37,7 +39,9 @@ export async function listSources(): Promise<SourceView[]> {
     LEFT JOIN (SELECT COALESCE(NULLIF(TRIM(source), ''), 'unknown') AS source, count(*) AS n FROM investors GROUP BY 1) p ON p.source = s.source
     LEFT JOIN (SELECT COALESCE(NULLIF(TRIM(source), ''), 'unknown') AS source, count(*) AS n FROM investment_firms GROUP BY 1) f ON f.source = s.source
     ORDER BY (s.status = 'unreviewed') DESC, COALESCE(p.n, 0) DESC, s.source`) as any[]
-  return rows.map((r) => ({ ...r, acquired_at: r.acquired_at ? String(r.acquired_at).slice(0, 10) : null, reviewed_at: r.reviewed_at ? new Date(r.reviewed_at).toISOString() : null }))
+  const day = (v: unknown) => (v ? new Date(v as any).toISOString().slice(0, 10) : null)
+  return rows.map((r) => ({ ...r, acquired_at: r.acquired_at ? String(r.acquired_at).slice(0, 10) : null, reviewed_at: r.reviewed_at ? new Date(r.reviewed_at).toISOString() : null,
+    withdrawn_at: day(r.withdrawn_at), purged_at: day(r.purged_at), purge_on: r.withdrawn_at && !r.purged_at ? day(new Date(r.withdrawn_at).getTime() + HOLD_DAYS * 86_400_000) : null }))
 }
 
 export interface ReviewInput {
@@ -69,7 +73,7 @@ export async function reviewSource(staff: Staff, i: ReviewInput): Promise<void> 
   await audit("platform.directory_source.review", staff, src, { from: before ? { status: before.status, permitted_use: before.permitted_use } : null, to: { status: i.status, permitted_use: finalUses }, reason })
 }
 
-/** Withdraws a batch: Anker stops all use of it at once. Rows are kept for now (deletion and tombstones are slice D2). A batch over 1,000 people needs a superadmin. */
+/** Withdraws a batch: its people are hidden from matching and discovery and all use is blocked at once. After the hold, Anker's maintenance job tombstones and deletes them. A batch over 1,000 people needs a superadmin. */
 export async function withdrawSource(staff: Staff, source: string, reasonText: string): Promise<{ people: number; firms: number }> {
   if (!roleAtLeast(staff.role, "admin")) throw new ControlError("Only admins can withdraw a source.", 403)
   const reason = reasonOf(reasonText)
@@ -81,6 +85,8 @@ export async function withdrawSource(staff: Staff, source: string, reasonText: s
   const people = Number(p?.n ?? 0), firms = Number(f?.n ?? 0)
   if (people > WITHDRAW_ADMIN_CEILING && !roleAtLeast(staff.role, "superadmin")) throw new ControlError(`Withdrawing more than ${WITHDRAW_ADMIN_CEILING.toLocaleString()} people needs a superadmin.`, 403)
   await sql`UPDATE directory_sources SET status = 'withdrawn', withdrawn_at = now(), withdraw_reason = ${reason}, reviewed_by = ${staff.email}, reviewed_at = now(), updated_at = now() WHERE source = ${source}`
+  // Hide only rows that were visible, and remember which, so a restore switches back exactly these.
+  await sql`UPDATE investors SET is_active = false, hidden_by_source = true WHERE COALESCE(NULLIF(TRIM(source), ''), 'unknown') = ${source} AND COALESCE(is_active, true) = true AND NOT hidden_by_source`
   await audit("platform.directory_source.withdraw", staff, source, { people, firms, reason })
   return { people, firms }
 }
@@ -89,9 +95,11 @@ export async function withdrawSource(staff: Staff, source: string, reasonText: s
 export async function restoreSource(staff: Staff, source: string, reasonText: string): Promise<void> {
   if (!roleAtLeast(staff.role, "admin")) throw new ControlError("Only admins can restore a source.", 403)
   const reason = reasonOf(reasonText)
-  const s = ((await sql`SELECT status FROM directory_sources WHERE source = ${source}`) as any[])[0]
+  const s = ((await sql`SELECT status, purged_at FROM directory_sources WHERE source = ${source}`) as any[])[0]
   if (!s) throw new ControlError("Unknown source.", 404)
   if (s.status !== "withdrawn") throw new ControlError("Only a withdrawn source can be restored.")
+  if (s.purged_at) throw new ControlError("This source's people have already been deleted. Import it again if you are allowed to.")
   await sql`UPDATE directory_sources SET status = 'unreviewed', permitted_use = ARRAY['internal_matching'], withdrawn_at = NULL, withdraw_reason = NULL, reviewed_by = ${staff.email}, reviewed_at = now(), updated_at = now() WHERE source = ${source}`
+  await sql`UPDATE investors SET is_active = true, hidden_by_source = false WHERE COALESCE(NULLIF(TRIM(source), ''), 'unknown') = ${source} AND hidden_by_source`
   await audit("platform.directory_source.restore", staff, source, { reason })
 }
