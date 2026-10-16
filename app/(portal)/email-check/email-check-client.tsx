@@ -149,7 +149,7 @@ export function EmailCheckClient() {
         <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900 rounded-md text-xs">
           <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
           <div className="text-amber-700 dark:text-amber-400">
-            HUNTER_API_KEY not set — falling back to format + DNS-MX checks.  Set the key in <span className="font-mono">.env.local</span> and restart Anker for SMTP-grade verification + email-finder mode.
+            No Hunter API key is saved, so checks fall back to format + DNS-MX only. Add <span className="font-mono">HUNTER_API_KEY</span> under <a href="/integration-keys" className="underline">Integration keys</a> for SMTP-grade verification and email-finder mode. It applies within seconds, with no redeploy.
           </div>
         </div>
       )}
