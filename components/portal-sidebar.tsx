@@ -61,6 +61,7 @@ const NAV: { heading: string; items: { label: string; href: string; icon: any; s
       { label: "Directory identity", href: "/directory-identity", icon: Users },
       { label: "Privacy requests", href: "/privacy-requests", icon: ShieldCheck },
       { label: "Sub-processors", href: "/subprocessors", icon: Globe },
+      { label: "Telegram channel", href: "/telegram", icon: Send },
     ],
   },
 ]

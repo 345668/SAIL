@@ -85,6 +85,8 @@ export const PROXY_ALLOWLIST = [
   "admin/directory-identity",
   // "Send a test notification" for the alert channels (Anker docs/architecture/56): the channels and their secrets live in the tenant app.
   "admin/alerts-test",
+  // The customer Telegram channel's status and webhook set-up (Anker docs/architecture/57): the bot token and the derived webhook secret live in the tenant app and never leave it.
+  "admin/telegram-channel",
 ] as const
 
 /** Paths that require an acting user — refused without one. */

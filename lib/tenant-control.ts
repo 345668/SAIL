@@ -11,7 +11,7 @@ import { audit } from "./audit"
 export const FEATURES = [
   { key: "assistant", label: "AI assistant" }, { key: "outreach", label: "Outreach and send center" }, { key: "linkedin", label: "LinkedIn campaigns" },
   { key: "matchmaking", label: "Matchmaking" }, { key: "intake", label: "Deal intake form" }, { key: "tools", label: "Tools and conversion" },
-  { key: "fund_ops", label: "Fund administration" }, { key: "spvs", label: "SPVs" }, { key: "deals", label: "Deal pipeline" },
+  { key: "fund_ops", label: "Fund administration" }, { key: "spvs", label: "SPVs" }, { key: "deals", label: "Deal pipeline" }, { key: "channel_telegram", label: "Telegram channel" },
 ] as const
 export const LIMITS = [
   { key: "ai_spend_usd_month", label: "AI spend per month (USD)" }, { key: "seats", label: "Seats" }, { key: "outreach_sends_day", label: "Outreach sends per day" },
