@@ -87,6 +87,8 @@ export const PROXY_ALLOWLIST = [
   "admin/alerts-test",
   // The customer Telegram channel's status and webhook set-up (Anker docs/architecture/57): the bot token and the derived webhook secret live in the tenant app and never leave it.
   "admin/telegram-channel",
+  // The editable AI price list (Anker docs/architecture/58): which models have a price, and saving one.
+  "admin/model-prices",
 ] as const
 
 /** Paths that require an acting user — refused without one. */

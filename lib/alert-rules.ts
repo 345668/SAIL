@@ -16,6 +16,8 @@ export const RULES = [
   { key: "ai_failure_rate", label: "AI calls are failing", text: "A provider's share of failed calls in the window is above the threshold.", severity: 2 },
   { key: "privacy_request_due", label: "A privacy request is due", text: "A confirmed request is due within 7 days or overdue.", severity: 2 },
   { key: "telegram_queue", label: "The Telegram channel is backing up", text: "Messages to the Anker bot waited over ten minutes, or several failed in the last hour.", severity: 2 },
+  { key: "cost_coverage", label: "AI cost records are incomplete", text: "Under 95% of the last day's AI calls have a cost, so a plan's AI allowance is not seeing the real spend.", severity: 3 },
+  { key: "unpriced_model", label: "An AI model has no price", text: "Calls to a model with no price were recorded in the last day. Add the price in Model prices.", severity: 2 },
 ] as const
 export type RuleKey = (typeof RULES)[number]["key"]
 export const MAX_MUTE_DAYS = 30
