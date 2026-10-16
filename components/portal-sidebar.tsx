@@ -58,6 +58,7 @@ const NAV: { heading: string; items: { label: string; href: string; icon: any; s
       { label: "Billing & credits", href: "/billing", icon: CreditCard },
       { label: "Studio price list", href: "/studio-credits", icon: CreditCard },
       { label: "Model prices", href: "/model-prices", icon: CreditCard },
+      { label: "Unit economics", href: "/unit-economics", icon: CreditCard },
       { label: "Directory sources", href: "/directory-sources", icon: Database },
       { label: "Directory identity", href: "/directory-identity", icon: Users },
       { label: "Privacy requests", href: "/privacy-requests", icon: ShieldCheck },
