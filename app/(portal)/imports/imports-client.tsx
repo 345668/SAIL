@@ -91,7 +91,7 @@ export function ImportsClient() {
           </Field>
         </div>
         <div className="grid md:grid-cols-2 gap-3">
-          <Field label="Source tag" hint="lets you re-query / undo this batch later">
+          <Field label="Source tag" hint="lets you re-query / undo this batch later. Register it first under Directory sources (licence and permitted use), or the import is refused">
             <input
               type="text"
               value={source}
