@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeAll } from "vitest"
 import { PGlite } from "@electric-sql/pglite"
 
-const state = vi.hoisted(() => ({ q: null as any }))
+const state = vi.hoisted(() => ({ q: null as any, body: {} as any, status: 200, calls: [] as any[] }))
+vi.mock("./anker-proxy", () => ({ forwardToAnker: async (i: any) => { state.calls.push(i); return new Response(JSON.stringify(state.body), { status: state.status }) } }))
 vi.mock("@/lib/db", () => ({ sql: (p: TemplateStringsArray, ...v: unknown[]) => state.q(p.reduce((q, s, i) => q + (i ? `$${i}` : "") + s, ""), v) }))
-import { heartbeat, listOpen, listRecent, timeline, acknowledge, addNote, resolve } from "./alerts"
+import { heartbeat, listOpen, listRecent, timeline, acknowledge, addNote, resolve, sendTest } from "./alerts"
 import { ControlError } from "./tenant-control"
 
 let db: PGlite
@@ -69,5 +70,18 @@ describe("acting on an incident", () => {
     expect(await row(id)).toMatchObject({ status: "resolved", resolved_by: "admin@sail.test", cause: "STRIPE_WEBHOOK_SECRET was never set in Vercel", fix: "Created the webhook and set the secret" })
     expect((await fail(resolve(admin, id, { cause: "another cause here", fix: "another fix here" })))?.status).toBe(409)
     expect((await listRecent())[0].cause).toContain("never set")
+  })
+})
+
+describe("test notification", () => {
+  it("admins only; asks Anker, returns each channel's result and audits channels and outcomes without any error text", async () => {
+    expect((await fail(sendTest(staff)))?.status).toBe(403)
+    state.body = { configured: ["email", "telegram"], results: [{ channel: "email", ok: true }, { channel: "telegram", ok: false, error: "telegram refused (401): Unauthorized" }] }
+    const r = await sendTest(admin)
+    expect(r.results).toHaveLength(2); expect(state.calls.at(-1)).toMatchObject({ path: "admin/alerts-test", method: "POST", staffEmail: "admin@sail.test" })
+    const a = (await audits()).find((x) => x.action === "platform.alert.test")!
+    expect(a.detail).toEqual({ results: [{ channel: "email", ok: true }, { channel: "telegram", ok: false }] }); expect(JSON.stringify(a)).not.toContain("Unauthorized")
+    state.status = 500; state.body = { error: "x" }
+    expect((await fail(sendTest(admin)))?.status).toBe(502)
   })
 })

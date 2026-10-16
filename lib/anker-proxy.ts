@@ -83,6 +83,8 @@ export const PROXY_ALLOWLIST = [
   "admin/privacy-requests",
   // "Run detection now" for the directory identity queue (Anker docs/architecture/55, E1). The detector lives with the directory code in the tenant app; changes no directory data.
   "admin/directory-identity",
+  // "Send a test notification" for the alert channels (Anker docs/architecture/56): the channels and their secrets live in the tenant app.
+  "admin/alerts-test",
 ] as const
 
 /** Paths that require an acting user — refused without one. */

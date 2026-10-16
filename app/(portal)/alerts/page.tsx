@@ -3,7 +3,7 @@ import { getSession } from "@/lib/auth"
 import { PageShell } from "@/components/page-shell"
 import { roleAtLeast, MIN_REASON } from "@/lib/tenant-control"
 import { heartbeat, listOpen, listRecent, timeline } from "@/lib/alerts"
-import { ack, noteAction, resolveAction } from "./actions"
+import { ack, noteAction, resolveAction, testAction } from "./actions"
 
 export const dynamic = "force-dynamic"
 const card = "rounded-xl border border-border card-elev p-5"
@@ -28,6 +28,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
         {hb.stale
           ? <p role="alert" className="text-sm font-medium text-[var(--danger)]">The alert evaluator has not run successfully {hb.ageMinutes == null ? "yet" : `for ${hb.ageMinutes} minutes`}. Nothing is being watched.{hb.error ? ` Last error: ${hb.error}` : ""}</p>
           : <p className="text-sm">Watching: last checked {hb.ageMinutes} min ago · {hb.rules_evaluated} rules · {open.length} open.</p>}
+        {admin && <form action={testAction} className="mt-2"><button className={btn}>Send a test notification</button><span className="ml-2 text-xs text-muted-foreground">Email always; Telegram once its two variables are set in Vercel.</span></form>}
       </section>
       <div className="space-y-4">{open.map((i) => (
         <section key={i.id} id={`incident-${i.id}`} className={card}>

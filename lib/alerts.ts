@@ -1,5 +1,6 @@
 import { sql } from "./db"
 import { audit } from "./audit"
+import { forwardToAnker } from "./anker-proxy"
 import { ControlError, MIN_REASON, roleAtLeast } from "./tenant-control"
 import type { Staff } from "./studio-credits"
 
@@ -69,4 +70,14 @@ export async function resolve(staff: Staff, id: number, o: { cause: string; fix:
   await sql`UPDATE alert_incidents SET status = 'resolved', resolved_at = now(), resolved_by = ${staff.email}, cause = ${cause}, fix = ${fixText} WHERE id = ${id} AND status <> 'resolved'`
   await event(id, "resolved", staff.email, `Cause: ${cause} Fix: ${fixText}`)
   await audit("platform.alert.resolve", staff, String(id), { rule: r.rule_key, subject: r.subject })
+}
+
+/** Sends a test message on every alert channel that is switched on and returns each result. The result holds no secrets. */
+export async function sendTest(staff: Staff): Promise<{ configured: string[]; results: { channel: string; ok: boolean; error?: string }[] }> {
+  if (!roleAtLeast(staff.role, "admin")) throw new ControlError("Only admins can send a test notification.", 403)
+  const res = await forwardToAnker({ path: "admin/alerts-test", method: "POST", staffEmail: staff.email })
+  const json: any = await res.json().catch(() => ({}))
+  if (!res.ok) throw new ControlError(String(json?.error ?? `The app answered ${res.status}.`), res.status >= 500 ? 502 : 400)
+  await audit("platform.alert.test", staff, null, { results: (json.results ?? []).map((r: any) => ({ channel: r.channel, ok: r.ok })) })
+  return { configured: json.configured ?? [], results: json.results ?? [] }
 }
