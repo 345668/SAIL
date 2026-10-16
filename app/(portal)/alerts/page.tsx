@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
+import Link from "next/link"
 import { PageShell } from "@/components/page-shell"
 import { roleAtLeast, MIN_REASON } from "@/lib/tenant-control"
 import { heartbeat, listOpen, listRecent, timeline } from "@/lib/alerts"
@@ -21,7 +22,8 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
   const lines = new Map<number, Awaited<ReturnType<typeof timeline>>>()
   await Promise.all(open.map(async (i) => lines.set(i.id, await timeline(i.id))))
   return (
-    <PageShell eyebrow="System" title="Alerts" description="Problems the platform found in itself, one incident each. Anker checks every five minutes, tells you by email when something opens, reminds you every four hours until you acknowledge it, and closes it by itself when it clears. Every incident says what it means and what to do.">
+    <PageShell eyebrow="System" title="Alerts" description="Problems the platform found in itself, one incident each. Anker checks every five minutes, tells you by email and Telegram when something opens, reminds you every four hours until you acknowledge it, and closes it by itself when it clears. Every incident says what it means and what to do.">
+      <p className="mb-4 text-sm"><Link className="underline" href="/alerts/rules">Rules, thresholds, mutes and quiet hours</Link></p>
       {err && <p role="alert" className="mb-4 rounded-md border border-[var(--danger)] p-3 text-sm text-[var(--danger)]">{err}</p>}
       {ok && <p className="mb-4 rounded-md border border-border p-3 text-sm">{ok}</p>}
       <section className={`${card} mb-4 ${hb.stale ? "border-[var(--danger)]" : ""}`} aria-live="polite">
