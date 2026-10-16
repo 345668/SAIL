@@ -25,13 +25,22 @@ export async function getPrivacyRequest(staff: Staff, id: string): Promise<Reque
   return call(staff, `admin/privacy-requests/${id}`, "GET")
 }
 
-export type Action = { action: "access" | "rectify" | "restrict" | "refuse" | "extend" | "erase"; ids?: string[]; changes?: Record<string, string>; reason?: string; days?: number }
+export type ErasePreview = { people: number; wouldDelete: number; wouldAnonymise: number; workspacesToTell: number; byTable: { table: string; column: string; owner: string; fate: string; rows: number }[] }
+/** Read-only: what an erasure would do. Counts only; nothing is changed, so it is not audited. */
+export async function previewErasure(staff: Staff, id: string, ids: string[] = []): Promise<ErasePreview> {
+  if (!ID.test(id)) throw new ControlError("Unknown request.", 404)
+  if (!roleAtLeast(staff.role, "admin")) throw new ControlError("Only admins can preview an erasure.", 403)
+  return call(staff, `admin/privacy-requests/${id}`, "POST", { action: "erase_preview", ids })
+}
+
+export type Action = { action: "access" | "rectify" | "restrict" | "refuse" | "extend" | "erase"; ids?: string[]; changes?: Record<string, string>; reason?: string; days?: number; confirm?: boolean }
 export async function actOnPrivacyRequest(staff: Staff, id: string, a: Action): Promise<any> {
   if (!ID.test(id)) throw new ControlError("Unknown request.", 404)
   if (!roleAtLeast(staff.role, "admin")) throw new ControlError("Only admins can act on a privacy request.", 403)
   if (a.action === "erase" && !roleAtLeast(staff.role, "superadmin")) throw new ControlError("Only a superadmin can erase.", 403)
   if ((a.action === "refuse" || a.action === "extend") && (a.reason ?? "").trim().length < 10) throw new ControlError("A reason of at least 10 characters is required.")
+  if (a.action === "erase" && a.confirm !== true) throw new ControlError("Review the preview and tick the confirmation before erasing.")
   const out = await call(staff, `admin/privacy-requests/${id}`, "POST", a)
-  await audit(`platform.privacy_request.${a.action}`, staff, id, { rows: out?.rows ?? null, ids: a.ids?.length ?? 0, fields: a.changes ? Object.keys(a.changes) : undefined, days: a.days })
+  await audit(`platform.privacy_request.${a.action}`, staff, id, { rows: out?.rows ?? null, erased: a.action === "erase" ? { people: out?.people, deleted: out?.deleted, anonymised: out?.anonymised, workspacesTold: out?.workspacesTold } : undefined, ids: a.ids?.length ?? 0, fields: a.changes ? Object.keys(a.changes) : undefined, days: a.days })
   return out
 }

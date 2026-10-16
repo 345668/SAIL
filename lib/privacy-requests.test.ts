@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest"
 const state = vi.hoisted(() => ({ calls: [] as any[], status: 200, body: {} as any, audits: [] as any[] }))
 vi.mock("./anker-proxy", () => ({ forwardToAnker: async (i: any) => { state.calls.push(i); return new Response(JSON.stringify(state.body), { status: state.status }) } }))
 vi.mock("./audit", () => ({ audit: async (...a: any[]) => { state.audits.push(a) } }))
-import { actOnPrivacyRequest, getPrivacyRequest, listPrivacyRequests } from "./privacy-requests"
+import { actOnPrivacyRequest, getPrivacyRequest, listPrivacyRequests, previewErasure } from "./privacy-requests"
 
 const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
 const admin = { id: "a", email: "admin@sail.test", role: "admin" as const }, staff = { id: "s", email: "staff@sail.test", role: "staff" as const }, root = { id: "r", email: "root@sail.test", role: "superadmin" as const }
@@ -29,9 +29,20 @@ describe("privacy requests in the portal", () => {
     await expect(actOnPrivacyRequest(admin, "x", { action: "access" })).rejects.toMatchObject({ status: 404 })
     expect(state.calls).toHaveLength(0)
   })
+  it("an erasure needs a superadmin and the confirmation; the preview is for admins, changes nothing and is not audited", async () => {
+    await expect(actOnPrivacyRequest(root, id, { action: "erase" })).rejects.toThrow(/tick the confirmation/)
+    expect(state.calls).toHaveLength(0)
+    await expect(previewErasure(staff, id)).rejects.toMatchObject({ status: 403 })
+    state.body = { people: 1, wouldDelete: 0, wouldAnonymise: 1, workspacesToTell: 2, byTable: [] }
+    expect((await previewErasure(admin, id)).workspacesToTell).toBe(2)
+    expect(state.calls[0]).toMatchObject({ method: "POST" }); expect(JSON.parse(state.calls[0].body)).toEqual({ action: "erase_preview", ids: [] }); expect(state.audits).toHaveLength(0)
+    state.body = { people: 1, deleted: 0, anonymised: 1, workspacesTold: 2 }
+    await actOnPrivacyRequest(root, id, { action: "erase", confirm: true })
+    expect(state.audits[0][0]).toBe("platform.privacy_request.erase"); expect(state.audits[0][3].erased).toEqual({ people: 1, deleted: 0, anonymised: 1, workspacesTold: 2 })
+  })
   it("passes the app's error, including not-yet-available, to the screen", async () => {
     state.status = 501; state.body = { error: "Erasure arrives with the next release." }
-    await expect(actOnPrivacyRequest(root, id, { action: "erase" })).rejects.toMatchObject({ status: 501, message: "Erasure arrives with the next release." })
+    await expect(actOnPrivacyRequest(root, id, { action: "erase", confirm: true })).rejects.toMatchObject({ status: 501, message: "Erasure arrives with the next release." })
     expect(state.audits).toHaveLength(0)
   })
   it("the relay allows exactly the list and one record by id", async () => {
