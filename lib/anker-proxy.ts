@@ -81,6 +81,8 @@ export const PROXY_ALLOWLIST = [
   // Privacy requests from directory persons (Anker docs/architecture/54, D3). Relayed because the requester's details are encrypted with the tenant app's key and the
   // work (suppression, tombstones, the mails to the requester) is done by the tenant app. Portal service principal only on that side.
   "admin/privacy-requests",
+  // "Run detection now" for the directory identity queue (Anker docs/architecture/55, E1). The detector lives with the directory code in the tenant app; changes no directory data.
+  "admin/directory-identity",
 ] as const
 
 /** Paths that require an acting user — refused without one. */
