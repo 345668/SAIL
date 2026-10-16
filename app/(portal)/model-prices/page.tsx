@@ -2,8 +2,8 @@ import { redirect } from "next/navigation"
 import { getSession } from "@/lib/auth"
 import { PageShell } from "@/components/page-shell"
 import { roleAtLeast } from "@/lib/tenant-control"
-import { listPrices, type PriceRow } from "@/lib/model-prices"
-import { savePriceAction } from "./actions"
+import { listPricesAndUnits, type PriceRow, type UnitPriceRow } from "@/lib/model-prices"
+import { savePriceAction, saveUnitPriceAction } from "./actions"
 
 export const dynamic = "force-dynamic"
 const card = "rounded-xl border border-border card-elev p-5"
@@ -14,8 +14,8 @@ export default async function ModelPricesPage({ searchParams }: { searchParams: 
   const { err, ok } = await searchParams
   const staff = await getSession(); if (!staff) redirect("/login")
   const admin = roleAtLeast(staff.role, "admin")
-  let rows: PriceRow[] = [], error: string | null = null
-  try { rows = await listPrices(staff) } catch (e) { error = (e as Error).message }
+  let rows: PriceRow[] = [], units: UnitPriceRow[] = [], error: string | null = null
+  try { ({ prices: rows, units } = await listPricesAndUnits(staff)) } catch (e) { error = (e as Error).message }
   const missing = rows.filter((r) => r.source === "none" && r.calls30d > 0)
   return (
     <PageShell eyebrow="Platform" title="Model prices" description="List price of each AI model in US dollars per million tokens. A workspace's monthly AI allowance adds up these prices, so a model without one is not counted at all. Prices here are list prices, whichever lane served the call. Prices marked unverified are placeholders: check them against the provider's price list.">
@@ -61,6 +61,32 @@ export default async function ModelPricesPage({ searchParams }: { searchParams: 
             <button className={btn}>Add</button>
           </form>
         )}
+      </section>
+      <section className={`${card} mt-4`}>
+        <h2 className="text-sm font-semibold">Other metered units</h2>
+        <p className="mb-2 text-xs text-muted-foreground">Speech, embeddings, document reading and generated media are not priced per token. Each is a price in US dollars for one unit. Unverified prices are placeholders: check them against the provider's price list.</p>
+        <table className="w-full text-left text-sm">
+          <thead><tr className="text-xs text-muted-foreground"><th className="py-1">Unit</th><th>Events, 30 days</th><th>Quantity</th><th>Cost</th><th>Price per unit</th><th>Verified</th>{admin && <th>Set price</th>}</tr></thead>
+          <tbody>
+            {units.map((u) => (
+              <tr key={u.unit} className="border-t border-border align-top">
+                <td className="py-2 font-mono text-xs">{u.unit}<div className="font-sans text-muted-foreground">{u.note}</div></td>
+                <td>{u.events30d}</td><td>{Math.round(u.qty30d).toLocaleString()}</td><td>${u.usd30d.toFixed(4)}</td><td>{u.priceUsd}</td><td>{u.verified ? "yes" : "no"}</td>
+                {admin && (
+                  <td>
+                    <form action={saveUnitPriceAction} className="flex flex-wrap items-center gap-1">
+                      <input type="hidden" name="unit" value={u.unit} />
+                      <input className={input} name="priceUsd" defaultValue={u.priceUsd} aria-label={`Price per unit for ${u.unit}`} />
+                      <label className="flex items-center gap-1 text-xs"><input type="checkbox" name="verified" defaultChecked={u.verified} />checked</label>
+                      <input className={`${input} w-32`} name="note" placeholder="note" defaultValue={u.note ?? ""} />
+                      <button className={btn}>Save</button>
+                    </form>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </section>
     </PageShell>
   )
