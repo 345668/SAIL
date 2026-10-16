@@ -25,7 +25,7 @@ export default async function TelegramPage({ searchParams }: { searchParams: Pro
           <section className={card}>
             <h2 className="text-sm font-semibold">Set-up</h2>
             <ul className="mt-2 space-y-1 text-sm">
-              <li>Bot token (<code>TELEGRAM_PRODUCT_BOT_TOKEN</code>): {s.configured || s.tokenSet ? "set" : "not set in Vercel"}</li>
+              <li>Shared bot token (<code>TELEGRAM_PRODUCT_BOT_TOKEN</code>, optional): {s.configured || s.tokenSet ? "set" : "not set. Workspaces can connect a bot of their own in Anker, Connected channels; no Vercel step is needed for that."}</li>
               <li>Platform secret (<code>SECRET_KEY</code>): {s.configured || s.secretKeySet ? "set" : "not set"}</li>
               <li>Bot: {s.bot ? `@${s.bot}` : s.configured ? "Telegram did not answer" : "—"}</li>
               <li>Webhook: {!s.configured ? "—" : registered ? `registered (${s.webhook!.pending} waiting at Telegram)` : s.webhook?.url ? `points elsewhere: ${s.webhook.url}` : "not registered"}{s.webhook?.lastError ? ` · Telegram's last error: ${s.webhook.lastError}` : ""}</li>
