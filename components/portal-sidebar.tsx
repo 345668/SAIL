@@ -56,6 +56,7 @@ const NAV: { heading: string; items: { label: string; href: string; icon: any; s
       { label: "Audit log", href: "/audit", icon: ScrollText },
       { label: "Billing & credits", href: "/billing", icon: CreditCard },
       { label: "Studio price list", href: "/studio-credits", icon: CreditCard },
+      { label: "Directory sources", href: "/directory-sources", icon: Database },
     ],
   },
 ]
