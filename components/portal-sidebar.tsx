@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard, Bell, Building2, Users, KeyRound, Bot, Database, Send,
-  Newspaper, HeartPulse, ScrollText, CreditCard, LogOut, ShieldCheck, Plug, Puzzle, Plug2, Telescope, Globe, FileUp, LinkIcon, MailCheck, Wand2, Inbox, Mail, TicketCheck, Rocket,
+  Newspaper, HeartPulse, ScrollText, CreditCard, LogOut, Mic, ShieldCheck, Plug, Puzzle, Plug2, Telescope, Globe, FileUp, LinkIcon, MailCheck, Wand2, Inbox, Mail, TicketCheck, Rocket,
 } from "lucide-react"
 
 const NAV: { heading: string; items: { label: string; href: string; icon: any; soon?: boolean }[] }[] = [
@@ -64,6 +64,7 @@ const NAV: { heading: string; items: { label: string; href: string; icon: any; s
       { label: "Privacy requests", href: "/privacy-requests", icon: ShieldCheck },
       { label: "Sub-processors", href: "/subprocessors", icon: Globe },
       { label: "Telegram channel", href: "/telegram", icon: Send },
+      { label: "Halyard", href: "/halyard", icon: Mic },
     ],
   },
 ]

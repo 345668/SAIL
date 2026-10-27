@@ -11,14 +11,15 @@ import { audit } from "./audit"
 export const FEATURES = [
   { key: "assistant", label: "AI assistant" }, { key: "outreach", label: "Outreach and send center" }, { key: "linkedin", label: "LinkedIn campaigns" },
   { key: "matchmaking", label: "Matchmaking" }, { key: "intake", label: "Deal intake form" }, { key: "tools", label: "Tools and conversion" },
-  { key: "fund_ops", label: "Fund administration" }, { key: "spvs", label: "SPVs" }, { key: "deals", label: "Deal pipeline" }, { key: "channel_telegram", label: "Telegram channel" },
+  { key: "fund_ops", label: "Fund administration" }, { key: "spvs", label: "SPVs" }, { key: "deals", label: "Deal pipeline" }, { key: "channel_telegram", label: "Telegram channel" }, { key: "halyard", label: "Halyard (live call assistant)" },
 ] as const
 export const LIMITS = [
   { key: "ai_spend_usd_month", label: "AI spend per month (USD)" }, { key: "seats", label: "Seats" }, { key: "outreach_sends_day", label: "Outreach sends per day" },
   { key: "intake_submissions_month", label: "Intake applications per month" }, { key: "storage_mb", label: "Storage (MB)" },
   { key: "ai_studio_daily_credits", label: "AI Studio credits per day" },
   { key: "telegram_voice_per_day", label: "Telegram voice notes per device per day (default 40; type unlimited for none)" }, { key: "telegram_files_per_day", label: "Telegram files per device per day (default 30; type unlimited for none)" },
-  { key: "telegram_audio_minutes_per_day", label: "Telegram audio minutes per workspace per day (default 120; type unlimited for none)" }, { key: "telegram_voice_replies_per_day", label: "Telegram spoken replies per workspace per day (default 20; type unlimited for none)" },
+  { key: "telegram_audio_minutes_per_day", label: "Telegram audio minutes per workspace per day (default 120; type unlimited for none)" }, { key: "halyard_minutes_month", label: "Halyard listening minutes per month (default 600; type unlimited for none)" }, { key: "halyard_sessions_live", label: "Halyard sessions open at once per person (default 1)" },
+  { key: "telegram_voice_replies_per_day", label: "Telegram spoken replies per workspace per day (default 20; type unlimited for none)" },
 ] as const
 export type FeatureKey = (typeof FEATURES)[number]["key"]
 export type LimitKey = (typeof LIMITS)[number]["key"]
