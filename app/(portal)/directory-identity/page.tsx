@@ -4,7 +4,7 @@ import { getSession } from "@/lib/auth"
 import { PageShell } from "@/components/page-shell"
 import { roleAtLeast, MIN_REASON } from "@/lib/tenant-control"
 import { counts, listCandidates, PAGE, type CandidateView, type FirmView, type PersonView, type Tier } from "@/lib/directory-identity"
-import { decideAction, reopenAction, runNow } from "./actions"
+import { decideAction, hierarchyAction, mergeAction, previewAction, reopenAction, runNow, undoAction } from "./actions"
 
 export const dynamic = "force-dynamic"
 const card = "rounded-xl border border-border card-elev p-5"
@@ -36,7 +36,7 @@ export default async function DirectoryIdentityPage({ searchParams }: { searchPa
   const staff = await getSession(); if (!staff) redirect("/login")
   const admin = roleAtLeast(staff.role, "admin")
   const kind = sp.kind === "person" ? "person" : "firm"
-  const status = ["open", "same", "distinct", "related", "stale"].includes(sp.status ?? "") ? sp.status! : "open"
+  const status = ["open", "same", "distinct", "related", "merged", "stale"].includes(sp.status ?? "") ? sp.status! : "open"
   const withPossible = sp.tier === "all"
   const tiers: Tier[] = withPossible ? ["certain", "probable", "possible"] : ["certain", "probable"]
   const page = Math.max(0, Number(sp.page) || 0)
@@ -45,7 +45,7 @@ export default async function DirectoryIdentityPage({ searchParams }: { searchPa
   const q = (o: Record<string, string>) => `/directory-identity?${new URLSearchParams({ kind, tier: sp.tier ?? "", status, page: "0", ...o })}`
   const pages = Math.ceil(list.total / PAGE)
   return (
-    <PageShell eyebrow="Data" title="Directory identity" description="Records in the shared investor directory that may be the same firm or the same person. The detector proposes; you decide. Nothing is merged yet: a decision is recorded, and “not the same” is remembered so the pair is never proposed again. Firms are never merged automatically; “related” keeps a brand and its programmes as separate records.">
+    <PageShell eyebrow="Data" title="Directory identity" description="Records in the shared investor directory that may be the same firm or the same person. The detector proposes; you decide. A pair confirmed as the same can be merged here (reversible for 90 days); “not the same” is remembered so the pair is never proposed again. Firms are never merged automatically; “related” keeps a brand and its programmes as separate records.">
       {sp.err && <p role="alert" className="mb-4 rounded-md border border-[var(--danger)] p-3 text-sm text-[var(--danger)]">{sp.err}</p>}
       {sp.ok && <p className="mb-4 rounded-md border border-border p-3 text-sm">{sp.ok}</p>}
       <section className={`${card} mb-4`}>
@@ -56,7 +56,7 @@ export default async function DirectoryIdentityPage({ searchParams }: { searchPa
         <Link className={kind === "firm" ? "font-semibold underline" : "underline"} href={q({ kind: "firm" })}>Firms</Link>
         <Link className={kind === "person" ? "font-semibold underline" : "underline"} href={q({ kind: "person" })}>People</Link>
         <span className="text-muted-foreground">·</span>
-        {["open", "same", "distinct", "related", "stale"].map((s) => <Link key={s} className={status === s ? "font-semibold underline" : "underline"} href={q({ status: s })}>{s}</Link>)}
+        {["open", "same", "distinct", "related", "merged", "stale"].map((s) => <Link key={s} className={status === s ? "font-semibold underline" : "underline"} href={q({ status: s })}>{s}</Link>)}
         <span className="text-muted-foreground">·</span>
         <Link className="underline" href={q({ tier: withPossible ? "" : "all" })}>{withPossible ? "Hide possible" : "Include possible (noisy)"}</Link>
       </nav>
@@ -73,6 +73,21 @@ export default async function DirectoryIdentityPage({ searchParams }: { searchPa
               <button name="decision" value="distinct" className={btn}>Not the same</button>
               {c.kind === "firm" && <><select name="parent" className={small} aria-label="Parent firm if related"><option value="">Parent…</option><option value={String(c.a?.id ?? "")}>{(c.a as FirmView | null)?.name}</option><option value={String(c.b?.id ?? "")}>{(c.b as FirmView | null)?.name}</option></select><button name="decision" value="related" className={btn}>Related</button></>}
             </form>
+          )}
+          {admin && c.status === "same" && (
+            <form className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3">
+              <input type="hidden" name="id" value={c.id} /><input type="hidden" name="kind" value={kind} /><input type="hidden" name="tier" value={sp.tier ?? ""} /><input type="hidden" name="status" value={status} /><input type="hidden" name="page" value={page} />
+              <select name="survivor" className={small} aria-label="Record to keep"><option value={String(c.a?.id ?? "")}>Keep: {(c.a as any)?.name}</option><option value={String(c.b?.id ?? "")}>Keep: {(c.b as any)?.name}</option></select>
+              <input name="reason" maxLength={500} placeholder="Reason (needed when many workspace records are involved)" className={`${small} min-w-[240px] flex-1`} aria-label="Reason to merge" />
+              <button formAction={previewAction} className={btn}>Preview</button><button formAction={mergeAction} className={btn}>Merge</button>
+            </form>
+          )}
+          {admin && c.status === "related" && c.kind === "firm" && (
+            <form action={hierarchyAction} className="mt-3 flex items-center gap-2 border-t border-border pt-3"><input type="hidden" name="id" value={c.id} /><input type="hidden" name="kind" value={kind} /><input type="hidden" name="tier" value={sp.tier ?? ""} /><input type="hidden" name="status" value={status} /><input type="hidden" name="page" value={page} /><button className={btn}>Apply as hierarchy (programme of the parent)</button></form>
+          )}
+          {admin && c.status === "merged" && (
+            <form action={undoAction} className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3"><input type="hidden" name="id" value={c.id} /><input type="hidden" name="kind" value={kind} /><input type="hidden" name="tier" value={sp.tier ?? ""} /><input type="hidden" name="status" value={status} /><input type="hidden" name="page" value={page} />
+              <input name="reason" required minLength={MIN_REASON} maxLength={500} placeholder="Why undo (10+ characters)" className={`${small} min-w-[220px] flex-1`} aria-label="Reason to undo" /><button className={btn}>Undo the merge</button></form>
           )}
           {admin && ["same", "distinct", "related"].includes(c.status) && (
             <form action={reopenAction} className="mt-3 flex flex-wrap items-end gap-2 border-t border-border pt-3"><input type="hidden" name="id" value={c.id} /><input type="hidden" name="kind" value={kind} /><input type="hidden" name="tier" value={sp.tier ?? ""} /><input type="hidden" name="status" value={status} /><input type="hidden" name="page" value={page} />
