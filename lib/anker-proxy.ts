@@ -89,6 +89,7 @@ export const PROXY_ALLOWLIST = [
   "admin/telegram-channel",
   "admin/halyard",
   "admin/restore-drill",
+  "admin/credits",
   // The editable AI price list (Anker docs/architecture/58): which models have a price, and saving one.
   "admin/model-prices",
   // Cost for the operator (Anker docs/architecture/58 M3): totals, workspaces against limits, cost per job, and the provider bills.

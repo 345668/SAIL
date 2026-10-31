@@ -66,6 +66,7 @@ const NAV: { heading: string; items: { label: string; href: string; icon: any; s
       { label: "Telegram channel", href: "/telegram", icon: Send },
       { label: "Halyard", href: "/halyard", icon: Mic },
       { label: "Restore drill", href: "/restore-drill", icon: ShieldCheck },
+      { label: "AI credits", href: "/ai-credits", icon: CreditCard },
     ],
   },
 ]
