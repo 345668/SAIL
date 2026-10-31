@@ -20,6 +20,7 @@ export const RULES = [
   { key: "unpriced_model", label: "An AI model has no price", text: "Calls to a model with no price were recorded in the last day. Add the price in Model prices.", severity: 2 },
   { key: "workspace_at_limit", label: "A workspace has used its AI allowance", text: "A workspace passed 100% of its monthly AI allowance in the last day. Digest only.", severity: 3 },
   { key: "schema_behind", label: "The database is behind the deployed code", text: "The running version expects database migrations that have not been applied.", severity: 2 },
+  { key: "restore_drill_overdue", label: "A restore has not been tried lately", text: "No restore drill has passed in the last 100 days, or none ever has. Digest only.", severity: 3 },
   { key: "halyard_latency", label: "Halyard suggestions are slow", text: "The slowest 5% of suggestions took over 4 seconds in 15 minutes, with at least 20 suggestions.", severity: 3 },
   { key: "halyard_stt_failing", label: "Halyard transcription is failing", text: "Over 10% of at least 10 audio uploads failed to transcribe in 15 minutes.", severity: 3 },
   { key: "smoke_failed", label: "The post-deploy check failed", text: "After the last deploy a page or a deep check failed. A later passing run clears this.", severity: 2 },
